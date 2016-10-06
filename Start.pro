@@ -17,6 +17,14 @@ COMMON wkdirs, wkdir_global, tt, FRon, len
 .r IDL/StartLARE.pro
 ;.r ODEINT
 .r fieldwrapping
+.r IDL/plotloop.pro
+.r IDL/get_finish_data.pro
+.r IDL/plot_finish_data1.pro
+.r IDL/plot_finish_data2.pro
+@ StartSDF.pro
+.r IDL/ptrack_field.pro
+.r IDL/AB_hist.pro
+
 
 Q0 = 1.60217646d-19 ; proton charge [C]
 M0 = 9.10938188d-31 ; electron mass [kg]

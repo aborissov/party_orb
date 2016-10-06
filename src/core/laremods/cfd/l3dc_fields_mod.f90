@@ -52,11 +52,7 @@ SUBROUTINE L3DCGRID
       IF (type == TYPE_MESH) THEN	!if type=1
 
         CALL cfd_get_3d_cartesian_grid_all(myx, myy, myz)
-	!print*, nx, ny, nz
-	!print*, minval(myx), '->', maxval(myx)
-	!print*, minval(myy), '->', maxval(myy)
-	!print*, minval(myz), '->', maxval(myz)
-	!stop
+
         !CALL cfd_skip_block()
       ELSE IF (type == TYPE_MESH_VARIABLE) THEN		!if type=2
         CALL cfd_get_common_meshtype_metadata_all(type, nd, sof)
@@ -203,12 +199,13 @@ SUBROUTINE L3DCINIFIELDS
         IF (str_cmp(name(1:2), "By")) THEN
 !	 PRINT *, ix,nblocks, name, class
         !  by(0:nx, 0:ny, 0:nz) = data
-	 DO ii=1,ny
+	 DO ii=0,ny
 	  by(1:nx,ii,1:nz,frame)=stagger_by(data(1:nx,ii,1:nz))
 	 ENDDO 	 
         END IF
         IF (str_cmp(name(1:2), "Bz")) THEN
 !	 PRINT *, ix,nblocks, name, class
+
 	 DO ii=1,nz
 	  bz(1:nx,1:ny,ii,frame)=stagger_bz(data(1:nx,1:ny,ii))
 	 ENDDO 

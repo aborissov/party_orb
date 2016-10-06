@@ -8,7 +8,6 @@ USE mpi_routines
 USE bourdin_fields, ONLY: bour_ini, bour_fini
 USE M_products, ONLY: DOT, CROSS
 USE M_fields, ONLY: FIELDS
-USE gammadist_mod, ONLY: random_gamma
 
 IMPLICIT NONE
 
@@ -154,7 +153,7 @@ IMPLICIT NONE
    pnmax=nparticles
   ENDIF
 
-  maxwellEfirst=.TRUE.
+  
   DO WHILE (pos_no_x .LE. RSTEPS(1)-1)
    DO WHILE (pos_no_y .LE. RSTEPS(2)-1)
     DO WHILE ((pos_no_z .LE. RSTEPS(3)-1).AND.(pn .LE. pnmax))
@@ -188,20 +187,10 @@ IMPLICIT NONE
        T1=T1Keep
        T2=T2Keep
 
-       IF (RANDOMISE_A) THEN
-        alpha = Alphamin+dalpha*(pos_no_alpha -1)*tempa	!added by S.Oskoui
-       ELSE
-        alpha = Alphamin+dalpha*(pos_no_alpha -1)	!added by S.Oskoui
-       ENDIF
+       alpha = Alphamin+dalpha*(pos_no_alpha -1)	!added by S.Oskoui
        alpha = alpha*Pi/180.0d0				! RADEG: added by S.Oskoui
 
-       IF (RANDOMISE_E) THEN
-        !Ekin=EKinLow+(EKinHigh-EKinLow)*pos_no_ekin/(EkinSteps*1.0d0)*tempe   
-	Ekin= random_gamma(1.5_num, kb*maxwellpeaktemp, maxwellEfirst)
-	maxwellEfirst = .FALSE.
-       ELSE
-        Ekin=EKinLow+(EKinHigh-EKinLow)*pos_no_ekin/(EkinSteps*1.0d0)
-       ENDIF
+       Ekin=EKinLow+(EKinHigh-EKinLow)*pos_no_ekin/(EkinSteps*1.0d0) 
 
    !pos_no_ekin starts from 0, if started from 1 then (stepekin-1)
  
@@ -270,10 +259,11 @@ SUBROUTINE CALC2_MU(mu,vparstart,Ekin,alpha,RSTART,T1,T2)
   REAL(num), INTENT(IN) :: T1,T2, Ekin, Alpha
   REAL(num), INTENT(OUT) :: mu, vparstart
   REAL(num), DIMENSION(3) :: B,El,a2,a3,a4,a5,a6,a7,a8,a9,a10,ue
-  REAL(num) :: magB,vtot,vperp,Erest
+  REAL(num) :: magB,vtot,vperp,Erest,rho,temperature,eta
  
  !calculate B, E, V at this point/time:
- CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2)
+ !CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2)
+ CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2,rho,temperature,eta)
 
  !calculate magnitude of B
  magB=B(1)*B(1)+B(2)*B(2)+B(3)*B(3)

@@ -7,7 +7,6 @@ MODULE M_fields
   USE test_fields, ONLY: TESTFIELDS
   USE lare_functions, ONLY: str_cmp
   USE bourdin_fields, ONLY: BOURDINFIELDS
-  USE FR_fields, ONLY: FRFIELDS
   
   IMPLICIT NONE
 
@@ -16,10 +15,12 @@ MODULE M_fields
 
   CONTAINS 
 !---------------------------------------------------------------------------!
-SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
 !selects which fields module we actually use.
 
  INTEGER, SAVE :: route = -1
+ REAL(num)                              :: eta
+ REAL(num), INTENT(OUT)                 :: rho,temperature
  REAL(num), DIMENSION(3),INTENT(OUT)	:: B,E
  REAL(num), DIMENSION(3),INTENT(OUT)	:: DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT
  REAL(num), DIMENSION(3),INTENT(IN)	:: R
@@ -40,18 +41,18 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
       route=5
     ELSE IF ((str_cmp(FMOD, "BOR")).OR.(str_cmp(FMOD, "bor"))) THEN
       route=6
-    ELSE IF ((str_cmp(FMOD, "FRE")).OR.(str_cmp(FMOD, "fre"))) THEN
-      route=7
     ELSE
       PRINT*, "incorrect module selection, choose from:"
-      PRINT*, "['l3d','l2d','sep','CMT','test','bour','FRE']"
+      PRINT*, "['l3d','l2d','sep','CMT','test','bour']"
       STOP
     END IF
     GO TO 100 ! now actually head back and select case we want!
   CASE(1)
-    CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+    !CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+    CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,rho,temperature,eta)
   CASE(2)
-    CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+    !CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+    CALL LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,rho,temperature,eta)
   CASE(3)
     CALL SEPFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   CASE(4)
@@ -60,8 +61,6 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
     CALL TESTFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   CASE(6)
     CALL BOURDINFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
-  CASE(7)
-    CALL FRFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
 END SELECT
 
 

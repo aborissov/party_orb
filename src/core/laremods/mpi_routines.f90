@@ -204,7 +204,7 @@ CONTAINS
    !ALLOCATE(pressure(0:nx,0:ny,0:nz))   gflag=.false.
 
   frame=mysnap
-  WRITE (istring,fmt1) mysnap 			! convert first snapshot number to filename
+  WRITE (istring,fmt1) frame 			! convert first snapshot number to filename
   cfdloc=trim(adjustl(sloc))//trim(istring)//filetype1	! query both cfd and sdf formats		
   sdfloc=trim(adjustl(sloc))//trim(istring)//filetype2
   
@@ -249,8 +249,6 @@ CONTAINS
    gflag=.true.
   ENDIF
   IF (.not. ((maxval(myz).ge.ze(2)).OR.(minval(myz).le.ze(1)))) THEN
-   print*, maxval(myz), ze(2)
-   print*, minval(myz), ze(1)
    WRITE(*,*) '..particle start positions beyond specified lare grid range in z'
    gflag=.true.
   ENDIF
@@ -262,9 +260,7 @@ CONTAINS
   ENDIF 
   
    WRITE(*,*)  '..now loading in Lare variables..'
-   frame=1
-   DO WHILE (frame.LE.(nframes))  
-    print*, 'looping'
+   DO WHILE (frame.LE.(nframes))
     IF (ce) THEN
       INQUIRE(file=TRIM(cfdloc),exist=ce2)
       IF (ce2) THEN
@@ -282,7 +278,7 @@ CONTAINS
       ENDIF
     ENDIF
     frame=frame+1
-    WRITE (istring,fmt1) mysnap+frame 			
+    WRITE (istring,fmt1) frame 			
     cfdloc=trim(adjustl(sloc))//trim(istring)//filetype1
     sdfloc=trim(adjustl(sloc))//trim(istring)//filetype2
    END DO
@@ -458,6 +454,12 @@ CONTAINS
    
   !ALLOCATE(rho(0:nx,0:ny,0:nz))
   !ALLOCATE(energy(0:nx,0:ny,0:nz)) 
+  ALLOCATE(rho(1:nx,1:ny,1:1,1:nframes))
+  ALLOCATE(temperature(1:nx,1:ny,1:1,1:nframes))
+  ALLOCATE(eta(1:nx,1:ny,1:1,1:nframes))
+  ALLOCATE(jx(1:nx,1:ny,1:1,1:nframes))
+  ALLOCATE(jy(1:nx,1:ny,1:1,1:nframes))
+  ALLOCATE(jz(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vx(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vy(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vz(1:nx,1:ny,1:1,1:nframes))
@@ -472,7 +474,7 @@ CONTAINS
   !ALLOCATE(pressure(0:nx,0:ny,0:nz))   gflag=.false.
 
   frame=mysnap  
-  WRITE (istring,fmt1) mysnap 			! convert first snapshot number to filename
+  WRITE (istring,fmt1) frame 			! convert first snapshot number to filename
   cfdloc=trim(adjustl(sloc))//trim(istring)//filetype1		! create and query filenames
   sdfloc=trim(adjustl(sloc))//trim(istring)//filetype2
   
@@ -509,10 +511,12 @@ CONTAINS
   WRITE(*,101)  'checking grid extent: ' 
    IF (.not. ((maxval(myx).ge.xe(2)).OR.(minval(myx).le.xe(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in x'
+    print *, 'mpi routines particle positions xe = ', xe, ' minmax(myx) = ', minval(myx), maxval(myx)
     gflag=.true.
    ENDIF
    IF (.not. ((maxval(myy).ge.ye(2)).OR.(minval(myy).le.ye(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in y'
+    print *, 'mpi routines particle positions ye = ', ye, ' minmay(myy) = ', minval(myy), maxval(myy)
     gflag=.true.
    ENDIF
    IF (gflag) THEN
@@ -523,7 +527,6 @@ CONTAINS
    ENDIF 
 
    WRITE(*,*)  '..now loading in Lare variables..'
-   frame=1
    DO WHILE (frame.LE.(nframes))
     IF (ce) THEN
       INQUIRE(file=TRIM(cfdloc),exist=ce2)
@@ -542,7 +545,7 @@ CONTAINS
       ENDIF
     ENDIF
     frame=frame+1
-    WRITE (istring,fmt1) mysnap+frame 			
+    WRITE (istring,fmt1) frame 			
     cfdloc=trim(adjustl(sloc))//trim(istring)//filetype1
     sdfloc=trim(adjustl(sloc))//trim(istring)//filetype2
    END DO

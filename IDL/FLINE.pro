@@ -1,4 +1,4 @@
-;PRO FLINE
+PRO FLINE
 ; FLINE
 ;  numerically integrates field lines according to field specified in derivs
 ;  then displays

@@ -6,7 +6,7 @@ USE GLOBAL
  IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: stagger_bx, stagger_by, stagger_bz, stagger_bx_2d, stagger_by_2d
+  PUBLIC :: stagger_bx, stagger_by, stagger_bz, stagger_bx_2d, stagger_by_2d, stagger_centre
   PUBLIC :: linterp3d, linterp2d, linterp1d, T2d, t3d, str_cmp, check_dims
 
 CONTAINS
@@ -104,6 +104,68 @@ FUNCTION stagger_by_2d(var)
 
 END FUNCTION stagger_by_2d
 !--------------------------------------!
+FUNCTION stagger_centre(var)
+!+ function for de-staggering variables stored in grid centres to grid points
+    REAL(num), DIMENSION(:,:), INTENT(IN)        	:: var
+    REAL(num), DIMENSION(SIZE(var,1)+1,SIZE(var,2)+1)	:: stagger_centre 
+    INTEGER	:: mnx,mny,j,k
+ 
+    mnx=size(var,1)
+    mny=size(var,2)
+    do j = 2,mnx 
+       do k = 2,mny 
+          stagger_centre(j,k) = (var(j-1,k-1) + var(j-1,k) + var(j,k-1) + var(j,k))/4.0_num
+       enddo
+    enddo
+    ! ASSUMING PERIODIC BCS IN X !!! ADD IN PROPER SWITCHES !!!
+    do j = 2,mny 
+       stagger_centre(1,j) = (var(1,j-1) + var(1,j) + var(mnx,j-1) + var(mnx,j))/4.0_num
+       stagger_centre(mnx+1,j) = stagger_centre(1,j)
+    enddo
+    ! NOT ASSUMING PERIODIC BCS IN X !!!
+    !do j = 2,mny 
+    !   stagger_centre(1,j) = (var(1,j-1) + var(1,j))/2.0_num
+    !   stagger_centre(mnx+1,j) = (var(mnx,j-1) + var(mnx,j))/2.0_num
+    !enddo
+    ! ASSUMING PERIODIC BCS IN Y !!!
+    !do j = 2,mnx 
+    !   stagger_centre(j,1) = (var(j-1,1) + var(j,1) + var(j-1,mny) + var(j,mny))/4.0_num
+    !   stagger_centre(j,mny+1) = stagger_centre(1,j)
+    !enddo
+    ! NOT ASSUMING PERIODIC BCS IN Y !!!
+    do j = 2,mnx 
+       stagger_centre(j,1) = (var(j-1,1) + var(j,1))/2.0_num
+       stagger_centre(j,mny+1) = (var(j-1,mny) + var(j,mny))/2.0_num
+    enddo
+    
+    ! ASSUMING PERIODIC BCS IN X AND Y !!!
+    !stagger_centre(1,1) = (var(1,1) + var(1,mny+1) + var(mnx+1,1) + var(mnx+1,mny+1))/4.0_num
+    !stagger_centre(mnx+1,1) = stagger_centre(1,1)
+    !stagger_centre(1,mny+1) = stagger_centre(1,1)
+    !stagger_centre(mnx+1,mny+1) = stagger_centre(1,1)
+
+    ! ASSUMING PERIODIC BCS IN X
+    stagger_centre(1,1) = (var(1,1) + var(mnx,1))/2.0_num
+    stagger_centre(mnx+1,1) = stagger_centre(1,1)
+    stagger_centre(1,mny+1) = (var(1,mny) + var(mnx,mny))/2.0_num
+    stagger_centre(mnx+1,mny+1) = stagger_centre(1,mny+1)
+
+    ! ASSUMING PERIODIC BCS IN Y
+    !stagger_centre(1,1) = (var(1,1) + var(1,mny))/2.0_num
+    !stagger_centre(1,mny+1) = stagger_centre(1,1)
+    !stagger_centre(mnx+1,1) = (var(mnx,1) + var(mnx,mny))/2.0_num
+    !stagger_centre(mnx+1,mny+1) = stagger_centre(mnx+1,1)
+
+    ! ASSUMING NON-PERIODIC BCS IN X AND Y
+    !stagger_centre(1,1) = var(1,1)
+    !stagger_centre(mnx+1,1) = var(mnx,1)
+    !stagger_centre(1,mny+1) = var(1,mny)
+    !stagger_centre(mnx+1,mny+1) = var(mnx,mny)
+
+    RETURN
+
+END FUNCTION stagger_centre
+!--------------------------------------!
 FUNCTION linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
 ! peforms sub-grid interpolation of a given quantity
 ! April 2014: attempted update to evaluate derivs of variable passed in too, into 4d array
@@ -162,8 +224,10 @@ FUNCTION linterp1d(dx,f0,f1)
     REAL(num), INTENT(IN)	:: dx, f0, f1
  
     IF(abs(dx).gt.1.0_num) THEN
-      PRINT*, 'CRITICAL ERROR: dx is TOO BIG'
-      STOP
+      PRINT*, 'CRITICAL ERROR: dx is TOO BIG, dx = ', dx
+      !STOP
+      linterp1d = -12345678.9_num
+      return
     ENDIF
   
   linterp1d=(1.0_num-dx)*f0+dx*f1
@@ -176,48 +240,59 @@ FUNCTION T2d(R,T)
 
    REAL(num), DIMENSION(3), INTENT(IN)		:: R		!actual position
    REAL(num), INTENT(IN)			:: T
-   REAL(num), DIMENSION(36)			:: T2d
+   REAL(num), DIMENSION(39)			:: T2d
    REAL(num)					:: temp,  modj, dgt, odgt
    REAL(num), DIMENSION(2)			:: dg, odg, coffset
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
+   REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt, rhot, temperaturet, etat
    REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt
    REAL(num), DIMENSION(:), ALLOCATABLE		:: dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt
-   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz
+   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz, tbx, tby, tbz
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbydx,dmbydy,dmbzdx,dmbzdy
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmExdx,dmExdy,dmEydx,dmEydy,dmEzdx,dmEzdy
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: meta
    INTEGER, DIMENSION(3) 			:: l		! set at value it could never reach!
-   INTEGER					:: jjx, jjy, jjz,jjt, rpt
+   INTEGER					:: jjx, jjy, jjz,jjt, rpt,j
    LOGICAL					:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
  
     temp=0.0_num
     dg=(/myx(2)-myx(1),myy(2)-myy(1)/)	! grid spacing
     odg=(/1.0_num/dg(1),1.0_num/dg(2)/)	! one over grid spacing
     l=(/-nx,-ny,-nframes/)					! initial value of l, set to silly value (as <=0 triggers flag)   
-    
+
        
   ! --STEP ONE-- !
   ! first, locate the (x,y,z) position on the grid
   ! particle found between (jjx,jjy,jjz) and (jjx+1,jjy+1,jjz+1)
   ! need four gridpoints either side to guarantee we can create derivs successfully   
-     
-   DO jjx=4,nx-4
+    
+   !print *,'larefunctions R = ',R
+   if (isnan(R(1)) .or. isnan(R(2))) then
+        print *, 'lare_function position nan, stopping.'
+        stop
+   endif
+   !DO jjx=4,nx-4
+   DO jjx=4,nx-5
     IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
       l(1)=jjx
+      !print *,'larefunctions R = ', R, ' grid ', myx(jjx), myx(jjx+1)
       EXIT
     !ELSE
     !  PRINT *, 'CANNOT FIND R(1) IN LARE x RANGE'
     ENDIF
    ENDDO
-   DO jjy=4,ny-4
+   !DO jjy=4,ny-4
+   DO jjy=4,ny-5
     IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
       l(2)=jjy
-    ! print*, l(2)
+      !print *,'larefunctions R = ', R, ' grid ', myy(jjy), myy(jjy+1)
+      !print *,'FOUND y'
       EXIT
     !ELSE
     !  PRINT *, 'CANNOT FIND R(2) IN LARE y RANGE'
     ENDIF
    ENDDO
+   if ((l(1) .le. 4) .or. (l(1) .ge. nx-4)) print *, 'lare_functions l = ', l, ' nx = ', nx, ' ny = ', ny, ' size of bx = ', size(bx,1), size(bx,2) 
+   if ((l(2) .le. 4) .or. (l(2) .ge. ny-4)) print *, 'lare_functions l = ', l, ' nx = ', nx, ' ny = ', ny, ' size of bx = ', size(bx,1), size(bx,2)  
 
 
 ! No guarantee we have more than one frame. IF we have one, this routine doesn't bother interpolating in time
@@ -228,34 +303,38 @@ FUNCTION T2d(R,T)
    DO jjt=1,nframes
     IF ((T.GE.ltimes(jjt)).AND.((T.LT.ltimes(jjt+1)))) THEN
       l(3)=jjt
+      dgt=ltimes(jjt+1)-ltimes(jjt)
+      odgt=1.0_num/dgt
       EXIT
     ELSE
-      PRINT *, 'CANNOT FIND TIME IN LARE TIME RANGE'
+      !PRINT *, 'CANNOT FIND TIME IN LARE TIME RANGE'
+      !print *, 'T = ',T
+      !print *, 'ltimes = ',ltimes
+      !stop
     ENDIF
    ENDDO
    rpt=1
-   ALLOCATE(bxt(2), byt(2), bzt(2),vxt(2), vyt(2), vzt(2), Ext(2), Eyt(2), Ezt(2), jxt(2), jyt(2), jzt(2))
+   ALLOCATE(bxt(2), byt(2), bzt(2),vxt(2), vyt(2), vzt(2), Ext(2), Eyt(2), Ezt(2), jxt(2), jyt(2), jzt(2), rhot(2), temperaturet(2),etat(2))
    ALLOCATE(dbxdxt(2),dbxdyt(2),dbydxt(2),dbydyt(2),dbzdxt(2),dbzdyt(2))
    ALLOCATE(dExdxt(2),dExdyt(2),dEydxt(2),dEydyt(2),dEzdxt(2),dEzdyt(2))
   ELSE
    l(3)=1
    rpt=0
-   ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1))
+   ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1), rhot(1), temperaturet(1), etat(1))
    ALLOCATE(dbxdxt(1),dbxdyt(1),dbydxt(1),dbydyt(1),dbzdxt(1),dbzdyt(1))
    ALLOCATE(dExdxt(1),dExdyt(1),dEydxt(1),dEydyt(1),dEzdxt(1),dEzdyt(1))
   !what happens if there is one frame to work with?
   ENDIF 
 
+  !print *,'l = ',l
   IF (minval(l).le.0) THEN
   ! CHECK: have we located the particle on the grid?
    PRINT*, 'particle identified at', L
    PRINT*, 'x/y grid bounds-> 1:', nx, ny
    PRINT*, 't grid bounds->', ltimes(1),':',ltimes(nframes)
-   print*, R
+   print*, 'particle position R = ', R
    STOP
   ENDIF
-  
-
 
 !  print*, l(2)
    coffset=(/(R(1)-myx(l(1)))*odg(1),(R(2)-myy(l(2)))*odg(2)/)
@@ -265,6 +344,11 @@ FUNCTION T2d(R,T)
        
   DO it=0,rpt	! NEED TO REPEAT FOR INTERPOLATION BETWEEN FRAMES, JT DEC 2015
   !(dx,dy,f00,f10,f01,f11)
+   !print *,'l(1) = ',l(1), size(rho)
+   !rhot(it+1) = rho(l(1),l(2),1,l(3)+it)
+   !temperaturet(it+1) = temperature(l(1),l(2),1,l(3)+it)
+   !etat(it+1) = eta(l(1),l(2),1,l(3)+it)
+
    temp=linterp2d(coffset(1),coffset(2), &
    bx(l(1),l(2),1,l(3)+it),bx(l(1)+1,l(2),1,l(3)+it),bx(l(1),l(2)+1,1,l(3)+it),bx(l(1)+1,l(2)+1,1,l(3)+it))
    bxt(it+1)=temp		!1
@@ -292,9 +376,33 @@ FUNCTION T2d(R,T)
    temp=linterp2d(coffset(1),coffset(2), &
    vz(l(1),l(2),1,l(3)+it),vz(l(1)+1,l(2),1,l(3)+it),vz(l(1),l(2)+1,1,l(3)+it),vz(l(1)+1,l(2)+1,1,l(3)+it))
    vzt(it+1)=temp		!6
-
    
-   ! --STEP THREE--!
+   temp=linterp2d(coffset(1),coffset(2), &
+   jx(l(1),l(2),1,l(3)+it),jx(l(1)+1,l(2),1,l(3)+it),jx(l(1),l(2)+1,1,l(3)+it),jx(l(1)+1,l(2)+1,1,l(3)+it))
+   jxt(it+1)=temp		!4
+   
+   temp=linterp2d(coffset(1),coffset(2), &
+   jy(l(1),l(2),1,l(3)+it),jy(l(1)+1,l(2),1,l(3)+it),jy(l(1),l(2)+1,1,l(3)+it),jy(l(1)+1,l(2)+1,1,l(3)+it))
+   jyt(it+1)=temp		!5
+   
+   temp=linterp2d(coffset(1),coffset(2), &
+   jz(l(1),l(2),1,l(3)+it),jz(l(1)+1,l(2),1,l(3)+it),jz(l(1),l(2)+1,1,l(3)+it),jz(l(1)+1,l(2)+1,1,l(3)+it))
+   jzt(it+1)=temp		!6
+
+   temp=linterp2d(coffset(1),coffset(2), &
+   rho(l(1),l(2),1,l(3)+it),rho(l(1)+1,l(2),1,l(3)+it),rho(l(1),l(2)+1,1,l(3)+it),rho(l(1)+1,l(2)+1,1,l(3)+it))
+   rhot(it+1)=temp		!6
+
+   temp=linterp2d(coffset(1),coffset(2), &
+   temperature(l(1),l(2),1,l(3)+it),temperature(l(1)+1,l(2),1,l(3)+it),temperature(l(1),l(2)+1,1,l(3)+it),temperature(l(1)+1,l(2)+1,1,l(3)+it))
+   temperaturet(it+1)=temp		!6
+
+   temp=linterp2d(coffset(1),coffset(2), &
+   eta(l(1),l(2),1,l(3)+it),eta(l(1)+1,l(2),1,l(3)+it),eta(l(1),l(2)+1,1,l(3)+it),eta(l(1)+1,l(2)+1,1,l(3)+it))
+   etat(it+1)=temp		!6
+   !etat = 0.005_num
+   !
+   !! --STEP THREE--!
    ! create temporary arrays around target cell and calculate derivs using extra cells
    ! - how many cells depend on which finite difference routine used
    ! - need db/dr->j and etadj/dr for E-derivs
@@ -304,6 +412,35 @@ FUNCTION T2d(R,T)
    ALLOCATE(mbx(-4:5,-4:5))
    ALLOCATE(mby(-4:5,-4:5))
    ALLOCATE(mbz(-4:5,-4:5))
+   !ALLOCATE(tbx(-4:nx+5,-4:ny+5))
+   !ALLOCATE(tby(-4:nx+5,-4:ny+5))
+   !ALLOCATE(tbz(-4:nx+5,-4:ny+5))
+
+   !tbx(1:nx,1:ny) = bx(1:nx,1:ny,1,l(3)+it)
+   !tby(1:nx,1:ny) = by(1:nx,1:ny,1,l(3)+it)
+   !tbz(1:nx,1:ny) = bz(1:nx,1:ny,1,l(3)+it)
+   !
+   !! PERIODIC BCS IN X 
+   !tbx(-4:0,1:ny) = bx(nx-4:nx,1:ny,1,l(3)+it)
+   !tby(-4:0,1:ny) = by(nx-4:nx,1:ny,1,l(3)+it)
+   !tbz(-4:0,1:ny) = bz(nx-4:nx,1:ny,1,l(3)+it)
+   !tbx(nx+1:nx+5,1:ny) = bx(1:5,1:ny,1,l(3)+it)
+   !tby(nx+1:nx+5,1:ny) = by(1:5,1:ny,1,l(3)+it)
+   !tbz(nx+1:nx+5,1:ny) = bz(1:5,1:ny,1,l(3)+it)
+
+   !! OPEN BCS IN Y (nothing else to put)
+   !do j = -4,0
+   !   tbx(1:nx,j) = bx(1:nx,1,1,l(3)+it)
+   !   tby(1:nx,j) = by(1:nx,1,1,l(3)+it)
+   !   tbz(1:nx,j) = bz(1:nx,1,1,l(3)+it)
+   !   tbx(1:nx,j+ny+5) = bx(1:nx,ny,1,l(3)+it)
+   !   tby(1:nx,j+ny+5) = by(1:nx,ny,1,l(3)+it)
+   !   tbz(1:nx,j+ny+5) = bz(1:nx,ny,1,l(3)+it)
+   !enddo
+
+   !mbx=tbx(l(1)-4:l(1)+5,l(2)-4:l(2)+5)
+   !mby=tby(l(1)-4:l(1)+5,l(2)-4:l(2)+5)
+   !mbz=tbz(l(1)-4:l(1)+5,l(2)-4:l(2)+5)
 
    mbx=bx(l(1)-4:l(1)+5,l(2)-4:l(2)+5,1,l(3)+it)
    mby=by(l(1)-4:l(1)+5,l(2)-4:l(2)+5,1,l(3)+it)
@@ -359,6 +496,7 @@ FUNCTION T2d(R,T)
    ALLOCATE(mEy(-2:3,-2:3))
    ALLOCATE(mEz(-2:3,-2:3))
    ALLOCATE(meta(-2:3,-2:3))
+   meta=eta(l(1)-2:l(1)+3,l(2)-2:l(2)+3,1,l(3)+it)
    
    
     DO iy=-2,3
@@ -367,7 +505,9 @@ FUNCTION T2d(R,T)
       mjy(ix,iy)=-dmbzdx(ix,iy)!+dmbxdz(ix,iy,iz)
       mjz(ix,iy)=dmbydx(ix,iy)-dmbxdy(ix,iy)
       modj=(mjx(ix,iy)*mjx(ix,iy)+mjy(ix,iy)*mjy(ix,iy)+mjz(ix,iy)*mjz(ix,iy))**0.5_num   
-      meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta          
+      !meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta          ! smooth transition between eta = 0 and non-zero
+      !meta(ix,iy)=eta
+      !if (eta .ne. 0.0_num) print *, 'lare_functions eta = ', eta
      END DO
     END DO
 
@@ -396,12 +536,12 @@ FUNCTION T2d(R,T)
 
    ! interpolate j too at this stage:
    !mjx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
-   jxt(it+1)=linterp2d(coffset(1),coffset(2), &
-    mjx(0,0), mjx(1,0), mjx(0,1), mjx(1,1))
-   jyt(it+1)=linterp2d(coffset(1),coffset(2), &
-    mjy(0,0), mjy(1,0), mjy(0,1), mjy(1,1))
-   jzt(it+1)=linterp2d(coffset(1),coffset(2), &
-    mjz(0,0), mjz(1,0), mjz(0,1), mjz(1,1))
+   !jxt(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mjx(0,0), mjx(1,0), mjx(0,1), mjx(1,1))
+   !jyt(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mjy(0,0), mjy(1,0), mjy(0,1), mjy(1,1))
+   !jzt(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mjz(0,0), mjz(1,0), mjz(0,1), mjz(1,1))
    
    ! --STEP FOUR--
    ! Ohm's Law: E=vxB-etaJ OR E=-etaJ
@@ -412,6 +552,9 @@ FUNCTION T2d(R,T)
       mEz(ix,iy)=meta(ix,iy)*mjz(ix,iy)-(mvx(ix,iy)*mby(ix,iy)-mvy(ix,iy)*mbx(ix,iy))
      ENDDO
     ENDDO
+    !Ext(it+1) = etat(it+1)*jxt(it+1) - (vyt(it+1)*bzt(it+1) - vzt(it+1)*byt(it+1))
+    !Eyt(it+1) = etat(it+1)*jyt(it+1) - (vzt(it+1)*bxt(it+1) - vxt(it+1)*bzt(it+1))
+    !Ezt(it+1) = etat(it+1)*jzt(it+1) - (vxt(it+1)*byt(it+1) - vyt(it+1)*bxt(it+1))
 
       
    
@@ -425,6 +568,9 @@ FUNCTION T2d(R,T)
    DEALLOCATE(mjy)
    DEALLOCATE(mjz)    
    DEALLOCATE(meta)
+   !DEALLOCATE(tbx)
+   !DEALLOCATE(tby)
+   !DEALLOCATE(tbz)
    
    ! --STEP FIVE-- !
    ! finally, calculate derivatives of electric field:
@@ -477,12 +623,15 @@ FUNCTION T2d(R,T)
    DEALLOCATE(dmEzdy)
 
 
-   Ext(it+1)=linterp2d(coffset(1),coffset(2), &
-    mEx(0,0), mEx(1,0), mEx(0,1), mEx(1,1))
-   Eyt(it+1)=linterp2d(coffset(1),coffset(2), &
-    mEy(0,0), mEy(1,0), mEy(0,1), mEy(1,1))
-   Ezt(it+1)=linterp2d(coffset(1),coffset(2), &
-    mEz(0,0), mEz(1,0), mEz(0,1), mEz(1,1))
+   !Ext(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mEx(0,0), mEx(1,0), mEx(0,1), mEx(1,1))
+   !Eyt(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mEy(0,0), mEy(1,0), mEy(0,1), mEy(1,1))
+   !Ezt(it+1)=linterp2d(coffset(1),coffset(2), &
+   ! mEz(0,0), mEz(1,0), mEz(0,1), mEz(1,1))
+      
+   !if (Ext(it+1)*bxt(it+1) + Eyt(it+1)*byt(it+1) + Ezt(it+1)*bzt(it+1) .ne. 0) print *, 'lare_functions E parallel = ', &
+   !  (Ext(it+1)*bxt(it+1) + Eyt(it+1)*byt(it+1) + Ezt(it+1)*bzt(it+1))/sqrt(bxt(it+1)*bxt(it+1) + byt(it+1)*byt(it+1) + bzt(it+1)*bzt(it+1))*Escl
     
    DEALLOCATE(mEx)
    DEALLOCATE(mEy)
@@ -523,32 +672,128 @@ FUNCTION T2d(R,T)
    IF (nframes.gt.1) THEN
 
     T2d(1)=linterp1d((T-ltimes(l(3)))*odgt,bxt(1),bxt(2))
+    if(T2d(1) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 1, T = ', T, ' ltimes = ', ltimes(l(3)), ' dgt = ', dgt
+        stop
+    endif
     T2d(2)=linterp1d((T-ltimes(l(3)))*odgt,byt(1),byt(2))
+    if(T2d(2) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 2'
+        stop
+    endif
     T2d(3)=linterp1d((T-ltimes(l(3)))*odgt,bzt(1),bzt(2))
+    if(T2d(3) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 3'
+        stop
+    endif
     T2d(4)=linterp1d((T-ltimes(l(3)))*odgt,vxt(1),vxt(2))
+    if(T2d(4) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 4'
+        stop
+    endif
     T2d(5)=linterp1d((T-ltimes(l(3)))*odgt,vyt(1),vyt(2))
+    if(T2d(5) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 5'
+        stop
+    endif
     T2d(6)=linterp1d((T-ltimes(l(3)))*odgt,vzt(1),vzt(2))
-    T2d(7)=linterp1d((T-ltimes(l(3)))*odgt,Ext(1),Ext(2))
-    T2d(8)=linterp1d((T-ltimes(l(3)))*odgt,Eyt(1),Eyt(2))
-    T2d(9)=linterp1d((T-ltimes(l(3)))*odgt,Ezt(1),Ezt(2))   
+    if(T2d(6) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 6'
+        stop
+    endif
+    !T2d(7)=linterp1d((T-ltimes(l(3)))*odgt,Ext(1),Ext(2))
+    !if(T2d(7) .eq. -12345678.9_num) then 
+    !    print *, 'lare_functions failed at 7'
+    !    stop
+    !endif
+    !T2d(8)=linterp1d((T-ltimes(l(3)))*odgt,Eyt(1),Eyt(2))
+    !if(T2d(8) .eq. -12345678.9_num) then 
+    !    print *, 'lare_functions failed at 8'
+    !    stop
+    !endif
+    !T2d(9)=linterp1d((T-ltimes(l(3)))*odgt,Ezt(1),Ezt(2))   
+    !if(T2d(9) .eq. -12345678.9_num) then 
+    !    print *, 'lare_functions failed at 9'
+    !    stop
+    !endif
     T2d(10)=linterp1d((T-ltimes(l(3)))*odgt,jxt(1),jxt(2))
+    if(T2d(10) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 10'
+        stop
+    endif
     T2d(11)=linterp1d((T-ltimes(l(3)))*odgt,jyt(1),jyt(2))
+    if(T2d(11) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 11'
+        stop
+    endif
     T2d(12)=linterp1d((T-ltimes(l(3)))*odgt,jzt(1),jzt(2))
+    if(T2d(12) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 12'
+        stop
+    endif
     T2d(13)=linterp1d((T-ltimes(l(3)))*odgt,dbxdxt(1),dbxdxt(2))
+    if(T2d(13) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 13'
+        stop
+    endif
     T2d(14)=linterp1d((T-ltimes(l(3)))*odgt,dbydxt(1),dbydxt(2))
+    if(T2d(14) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 14'
+        stop
+    endif
     T2d(15)=linterp1d((T-ltimes(l(3)))*odgt,dbzdxt(1),dbzdxt(2))
+    if(T2d(15) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 15'
+        stop
+    endif
     T2d(16)=linterp1d((T-ltimes(l(3)))*odgt,dbxdyt(1),dbxdyt(2))
+    if(T2d(16) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 16'
+        stop
+    endif
     T2d(17)=linterp1d((T-ltimes(l(3)))*odgt,dbydyt(1),dbydyt(2))
+    if(T2d(17) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 17'
+        stop
+    endif
     T2d(18)=linterp1d((T-ltimes(l(3)))*odgt,dbzdyt(1),dbzdyt(2))
+    if(T2d(18) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 18'
+        stop
+    endif
     T2d(19)=0.0_num		! Z derivs explicitly set to zero in 2d case
     T2d(20)=0.0_num
     T2d(21)=0.0_num
     T2d(22)=linterp1d((T-ltimes(l(3)))*odgt,dExdxt(1),dExdxt(2))
+    if(T2d(22) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 22'
+        stop
+    endif
     T2d(23)=linterp1d((T-ltimes(l(3)))*odgt,dEydxt(1),dEydxt(2))
+    if(T2d(23) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 23'
+        stop
+    endif
     T2d(24)=linterp1d((T-ltimes(l(3)))*odgt,dEzdxt(1),dEzdxt(2))
+    if(T2d(24) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 24'
+        stop
+    endif
     T2d(25)=linterp1d((T-ltimes(l(3)))*odgt,dExdyt(1),dExdyt(2))
+    if(T2d(25) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 25'
+        stop
+    endif
     T2d(26)=linterp1d((T-ltimes(l(3)))*odgt,dEydyt(1),dEydyt(2))
+    if(T2d(26) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 26'
+        stop
+    endif
     T2d(27)=linterp1d((T-ltimes(l(3)))*odgt,dEzdyt(1),dEzdyt(2))
+    if(T2d(27) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 27'
+        stop
+    endif
     T2d(28)=0.0_num
     T2d(29)=0.0_num
     T2d(30)=0.0_num
@@ -558,13 +803,37 @@ FUNCTION T2d(R,T)
     T2d(34)=(Ext(2)-Ext(1))*odgt	! as we have multiple snapshots, we can calculate time derivs finally!
     T2d(35)=(Eyt(2)-Eyt(1))*odgt
     T2d(36)=(Ezt(2)-Ezt(1))*odgt
+    T2d(37)=linterp1d((T-ltimes(l(3)))*odgt,rhot(1),rhot(2))
+    if(T2d(37) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 37'
+        stop
+    endif
+    T2d(38)=linterp1d((T-ltimes(l(3)))*odgt,temperaturet(1),temperaturet(2))
+    if(T2d(38) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 38'
+        stop
+    endif
+    T2d(39)=linterp1d((T-ltimes(l(3)))*odgt,etat(1),etat(2))
+    if(T2d(39) .eq. -12345678.9_num) then 
+        print *, 'lare_functions failed at 39'
+        stop
+    endif
+    
+    ! calculate electric fields here now that all values particle position
+    T2d(7) = T2d(39)*T2d(10) - (T2d(5)*T2d(3) - T2d(6)*T2d(2))
+    T2d(8) = T2d(39)*T2d(11) - (T2d(6)*T2d(1) - T2d(4)*T2d(3))
+    T2d(9) = T2d(39)*T2d(12) - (T2d(4)*T2d(2) - T2d(5)*T2d(1))
 
+    !print *, 'lare_funcs epar 0= ', (Ext(1)*Bxt(1) + Eyt(1)*Byt(1) + Ezt(1)*Bzt(1))/sqrt(Bxt(1)*Bxt(1) + Byt(1)*Byt(1) + Bzt(1)*Bzt(1))
+    !print *, 'lare_funcs epar 1= ', (Ext(2)*Bxt(2) + Eyt(2)*Byt(2) + Ezt(2)*Bzt(2))/sqrt(Bxt(2)*Bxt(2) + Byt(2)*Byt(2) + Bzt(2)*Bzt(2))
+    !print *, 'lare_funcs epar 2= ', (T2d(7)*T2d(1) + T2d(8)*T2d(2) + T2d(9)*T2d(3))/sqrt(T2d(1)*T2d(1) + T2d(2)*T2d(2) + T2d(3)*T2d(3))
 
     DEALLOCATE(bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt)
     DEALLOCATE(dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt)
     DEALLOCATE(dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt)
 
    ELSE
+    
    
     T2d(1)=bxt(1)
     T2d(2)=byt(1)
@@ -597,6 +866,18 @@ FUNCTION T2d(R,T)
     T2d(29)=0.0_num
     T2d(30)=0.0_num
     T2d(31:36)=0.0_num
+    T2d(37)=rhot(1)
+    T2d(38)=temperaturet(1)
+    T2d(39)=etat(1)
+
+    T2d(7) = T2d(39)*T2d(10) - (T2d(5)*T2d(3) - T2d(6)*T2d(2))
+    T2d(8) = T2d(39)*T2d(11) - (T2d(6)*T2d(1) - T2d(4)*T2d(3))
+    T2d(9) = T2d(39)*T2d(12) - (T2d(4)*T2d(2) - T2d(5)*T2d(1))
+
+    DEALLOCATE(bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt)
+    DEALLOCATE(dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt)
+    DEALLOCATE(dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt)
+
    ENDIF
    
 
@@ -872,6 +1153,7 @@ FUNCTION T3d(R,T)
    ALLOCATE(mEy(-2:3,-2:3,-2:3))
    ALLOCATE(mEz(-2:3,-2:3,-2:3))
    ALLOCATE(meta(-2:3,-2:3,-2:3))
+   meta=eta(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3,l(4)+it)
    
 
    DO iz=-2,3  
@@ -887,7 +1169,7 @@ FUNCTION T3d(R,T)
       !ELSE
       ! meta(ix,iy,iz)=0.0_num
       !ENDIF
-      meta(ix,iy,iz)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta          
+      !meta(ix,iy,iz)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta          
      END DO
     END DO
    END DO

@@ -12,16 +12,18 @@ MODULE lare_fields
   CONTAINS 
 
 !----------------------------------------------------------------------;   
-SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+!SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,rho,temperature,eta)
 ! wrapper module which calculates variables at sub grid particle locations, 
 !  and outputs values in specific order
 
+ REAL(num), INTENT(OUT)                        :: rho,temperature,eta
  REAL(num), DIMENSION(3),INTENT(OUT)	:: B,E
  REAL(num), DIMENSION(3),INTENT(OUT)	:: DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT
  REAL(num), DIMENSION(3),INTENT(IN)	:: R
  REAL(num), DIMENSION(3)  		:: Vf, j
  REAL(num), INTENT(IN) 			:: T
- REAL(num), DIMENSION(36)		:: iquants
+ REAL(num), DIMENSION(39)		:: iquants
  !INTEGER				:: ij, jjx, jjy, jjz
  !LOGICAL				:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
  !LOGICAL, INTENT(OUT)			:: ERR=.FALSE.
@@ -36,7 +38,9 @@ SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
     PRINT*, 'outside z bounds, returning'
     RETURN
    ENDIF
-   iquants=T3d(R,T)
+   !iquants=T3d(R,T)
+   print *,'WARNING: need to change T3d to be compatible with more outputs. Stopped in lare_fields.f90'
+   stop
   ELSE
    iquants=T2d(R,T)
   ENDIF
@@ -45,6 +49,7 @@ SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   !everything is fine
   ELSE
    PRINT*, 'NAN DETECTED IN LARE OUTPUT'
+   print *, 'lare_fields = ', iquants
    !ERR=.TRUE.
    STOP
   ENDIF
@@ -63,6 +68,14 @@ SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
    DEDZ	=iquants(28:30)
    DBDT	=iquants(31:33)
    DEDT	=iquants(34:36)  
+   rho = iquants(37)
+   temperature = iquants(38)
+   eta = iquants(39)
+
+   !print *, 'lare_fields epar 0= ', (E(1)*B(1) + E(2)*B(2) + E(3)*B(3))/sqrt(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))
+   !print *, 'lare fields E = ', E, ' B = ', B
+   !if (eta .ne. 0) print *, 'lare fields eta = ', eta, ' R = ', R, ' T = ', T
+
    
 
 END SUBROUTINE LAREFIELDS

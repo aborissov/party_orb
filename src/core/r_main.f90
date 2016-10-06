@@ -12,7 +12,7 @@ USE gammadist_mod, ONLY: random_gamma
 
 IMPLICIT NONE
 
- INTEGER :: NOK, NBAD
+ INTEGER :: NOK, NBAD, particle_tstart, particle_tend
  INTEGER :: NKEEP,time_no
  INTEGER :: pos_no_x,pos_no_y,pos_no_z,pos_no_alpha,pos_no_ekin
  INTEGER :: pnmax
@@ -22,7 +22,8 @@ IMPLICIT NONE
  REAL(num), DIMENSION(3) :: RSTART,RSTARTKEEP!, R1,R2
  REAL(num), DIMENSION(NKEEPMAX) :: TT 
  REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
- REAL(num), DIMENSION(3) :: Et,Bt,DBDXt,DBDYt,DBDZt,DBDTt,DEDXt,DEDYt,DEDZt,DEDTt,Vft
+ REAL(num), DIMENSION(3) :: Et,Bt,DBDXt,DBDYt,DBDZt,DBDTt,DEDXt,DEDYt,DEDZt,DEDTt,Vft,ue
+ REAL(num)               :: rrr1,ttt1,etaa1
  CHARACTER(LEN=35)	 :: finfile
  
  !welcome screen
@@ -43,8 +44,8 @@ IMPLICIT NONE
    l3dflag=.TRUE.
    CALL MPI_INIT(errcode)
    CALL mpi_initialise      ! mpi_routines.f90
-   print*, ltimes
-   IF (((nframes.GT.1)).AND.((T1/tscl.lt.ltimes(1)).OR.(T2/tscl.gt.ltimes(nframes)))) THEN
+   IF (((nframes.GT.1)).AND.((T1/tscl.lt.ltimes(0)).OR.(T2/tscl.gt.ltimes(nframes-1)))) THEN
+    print *, 'main particle initial time = ', T1/tscl, ' first snapshot time = ', ltimes(1), ' particle end time = ', T2/tscl, ' last snapshot time = ', ltimes(nframes-1)
     PRINT*, 'FATAL ERROR!' 
     PRINT*, '(normalised) start/end times of particle range go beyond Lare grid of times'
     PRINT*, '-> RETHINK normalisation, ADD in more snapshots, or LIMIT orbit lifetime.'
@@ -64,6 +65,7 @@ IMPLICIT NONE
     STOP
    ENDIF
    IF (((nframes.GT.1)).AND.((T1/tscl.lt.ltimes(1)).OR.(T2/tscl.gt.ltimes(nframes)))) THEN
+    print *, 'main particle initial time = ', T1/tscl, ' first snapshot time = ', ltimes(1), ' particle end time = ', T2/tscl, ' last snapshot time = ', ltimes(nframes-1)
     PRINT*, '-FATAL ERROR-' 
     PRINT*, '(normalised start/end times of particle range go beyond Lare grid of times)'
     PRINT*, '-> RETHINK normalisation, ADD in more snapshots, or LIMIT orbit lifetime.'
@@ -93,10 +95,12 @@ IMPLICIT NONE
   
   ! chose particle range xe/ye/ze -> particles must not start outside this range!
   IF (((R1(1)/lscl).le.xe(1)).OR.((R2(1)/lscl).ge.xe(2)))  THEN
+    print *, 'r_main R1(1)/lscl = ', R1(1)/lscl, ' R2(1)/lscl = ', R2(1)/lscl, 'grid bounds ', xe(1), xe(2)
     WRITE(*,*) '..particles not within x extent '
     gflag=.true.
    ENDIF
    IF (((R1(2)/lscl).le.ye(1)).OR.((R2(2)/lscl).ge.ye(2)))  THEN
+    print *, 'r_main R1(2)/lscl = ', R1(2)/lscl, ' R2(2)/lscl = ', R2(2)/lscl, 'grid bounds ', ye(1), ye(2)
     WRITE(*,*) '..particles not within y extent '
     gflag=.true.
    ENDIF
@@ -121,8 +125,12 @@ IMPLICIT NONE
   ENDDO
   lbox=(/R2(1)-R1(1),R2(2)-R1(2),R2(3)-R1(3)/)
 
-  nparticles=RSTEPS(1)*RSTEPS(2)*RSTEPS(3)*(AlphaSteps-1)*EkinSteps
-  dalpha = (AlphaMax-Alphamin)/(Alphasteps - 1.0d0) !added by S.Oskoui
+  nparticles=RSTEPS(1)*RSTEPS(2)*RSTEPS(3)*AlphaSteps*EkinSteps
+  if (Alphasteps .eq. 1) then
+    dalpha = (AlphaMax-Alphamin)/(Alphasteps) 
+  else
+    dalpha = (AlphaMax-Alphamin)/(Alphasteps - 1.0d0) 
+  endif
   
   !Adjust T2 to use loop value.
   !T2=time_no*1.0_num
@@ -130,23 +138,37 @@ IMPLICIT NONE
   T1Keep=T1
   T2Keep=T2
  
-  IF (JTo4) open(49,file=dlocR//'finishr.tmp' ,recl=1024,status='unknown')
+  if (p_restart) then
+    IF (JTo4) open(49,file=dlocR//'finishr.tmp',recl=1024,status='unknown',position = 'append')
+    IF (JTo4) open(50,file=dlocR//'startr.tmp' ,recl=1024,status='unknown',position = 'append')
+    IF (JTo4) open(51,file=dlocR//'failedr.tmp' ,recl=1024,status='unknown',position = 'append')
+    IF (JTo4) open(52,file=dlocR//'exitr.tmp' ,recl=1024,status='unknown',position = 'append')
+  else
+    IF (JTo4) open(49,file=dlocR//'finishr.tmp',recl=1024,status='unknown')
+    IF (JTo4) open(50,file=dlocR//'startr.tmp' ,recl=1024,status='unknown')
+    IF (JTo4) open(51,file=dlocR//'failedr.tmp' ,recl=1024,status='unknown')
+    IF (JTo4) open(52,file=dlocR//'exitr.tmp' ,recl=1024,status='unknown')
+  endif
   
   PRINT*, ''
   ! restart our calculation for certain particles within a given grid?
   ! can use to divvy up the same grid to different CPUs.
   IF (p_restart) THEN	! p_restart_no is the place a calculation starts again at
-   PRINT*, '--RESTARTING p_grid--'
+   PRINT*, '--RESTARTING p_grid at ', p_restart_no, '--'
    pn=p_restart_no-1
-   pos_no_x = pn / (RSTEPS(2)*RSTEPS(3))  
-   pos_no_y = MOD(pn / RSTEPS(3), RSTEPS(2))
-   pos_no_z = MOD(pn,RSTEPS(3))
+   pos_no_x = pn / (RSTEPS(2)*RSTEPS(3)*EkinSteps*AlphaSteps)  
+   pos_no_y = MOD(pn / (RSTEPS(3)*EkinSteps*AlphaSteps), RSTEPS(2))
+   pos_no_z = MOD(pn/(EkinSteps*AlphaSteps),RSTEPS(3))
+   pos_no_alpha = mod(pn/EkinSteps, AlphaSteps)
+   pos_no_ekin = mod(pn,EkinSteps)
   ELSE
    PRINT*, '--starting particle grid from beginning--'   
    pn=0
    pos_no_x=0
    pos_no_y=0
    pos_no_z=0
+   pos_no_alpha=0
+   pos_no_ekin=0
   ENDIF
   
   IF (p_stop) THEN	!p_stop_no is the particle number where we stop calculating
@@ -155,13 +177,19 @@ IMPLICIT NONE
    pnmax=nparticles
   ENDIF
 
+  !print *, 'main pos_no_x = ', pos_no_x, 'RSTEPS(1)', RSTEPS(1)
+  !print *, 'main pos_no_y = ', pos_no_y, 'RSTEPS(2)', RSTEPS(2)
+  !print *, 'main pos_no_z = ', pos_no_z, 'RSTEPS(3)', RSTEPS(3)
+  print *, 'main pn', pn, ' pnmax ', pnmax
   maxwellEfirst=.TRUE.
+  H1=H1/Tscl
   DO WHILE (pos_no_x .LE. RSTEPS(1)-1)
    DO WHILE (pos_no_y .LE. RSTEPS(2)-1)
-    DO WHILE ((pos_no_z .LE. RSTEPS(3)-1).AND.(pn .LE. pnmax))
-     DO pos_no_alpha = 2, AlphaSteps,1
-      DO pos_no_ekin = 1, EkinSteps,1
-
+    DO WHILE (pos_no_z .LE. RSTEPS(3)-1)
+     DO WHILE (pos_no_alpha .LE. AlphaSteps-1)
+      DO WHILE ((pos_no_ekin .LE. EkinSteps-1) .AND. (pn .LE. pnmax))
+       particle_tstart = time8()
+       
        pos_no_r = (/pos_no_x,pos_no_y, pos_no_z/)
        !print*, tempr
        IF (RANDOMISE_R) THEN
@@ -176,37 +204,55 @@ IMPLICIT NONE
        
        !call progress(pn,nparticles) ! generate the progress bar.
        
-       IF (JTo4) write(49,"(I4)",advance='no'), pn	   
+       !IF (JTo4) write(49,"(I4)",advance='no'), pn	   
 	   
-       IF (nparticles.gt.1000) THEN 
-        print 1000, pn,nparticles, RSTART     
-        1000 format ("particle no. ",i4,"/",i4, ", R=(",ES9.2,",",ES9.2,",",ES9.2,")")
-       ELSE 
-        print 1001, pn,nparticles, RSTART     
-        1001 format ("particle no. ",i3,"/",i3, ", R=(",ES9.2,",",ES9.2,",",ES9.2,")")
-       ENDIF    
 
        T1=T1Keep
        T2=T2Keep
 
+       !IF (RANDOMISE_A) THEN
+       ! alpha = Alphamin+dalpha*(pos_no_alpha -1)*tempa	!added by S.Oskoui
+       !ELSE
+       ! alpha = Alphamin+dalpha*(pos_no_alpha -1)	!added by S.Oskoui
+       !ENDIF
        IF (RANDOMISE_A) THEN
-        alpha = Alphamin+dalpha*(pos_no_alpha -1)*tempa	!added by S.Oskoui
+        alpha = Alphamin+dalpha*(pos_no_alpha)*tempa	!added by S.Oskoui
        ELSE
-        alpha = Alphamin+dalpha*(pos_no_alpha -1)	!added by S.Oskoui
+        alpha = Alphamin+dalpha*(pos_no_alpha)	!added by S.Oskoui
        ENDIF
        alpha = alpha*Pi/180.0d0				! RADEG: added by S.Oskoui
+       
+       if (print_number .eq. 1) then
+       IF (nparticles.gt.1000) THEN 
+        print 1000, pn,nparticles, RSTART,alpha*57.3
+        1000 format ("particle no. ",i4,"/",i4, ", R=(",ES9.2,",",ES9.2,",",ES9.2,"), alpha = ",ES9.2,",")
+       ELSE 
+        print 1001, pn,nparticles, RSTART ,alpha*57.3    
+        1001 format ("particle no. ",i3,"/",i3, ", R=(",ES9.2,",",ES9.2,",",ES9.2,"), alpha = ",ES9.2,",")
+       ENDIF    
+       endif
 
        
        !pos_no_ekin starts from 0, if started from 1 then (stepekin-1)
        IF (RANDOMISE_E) THEN
         !Ekin=EKinLow+(EKinHigh-EKinLow)*pos_no_ekin/(EkinSteps*1.0d0)*tempe   
-	Ekin= random_gamma(1.5_num, kb*maxwellpeaktemp, maxwellEfirst)
+        do while (.TRUE.)
+	  Ekin= random_gamma(1.5_num, kb*maxwellpeaktemp, maxwellEfirst)
+          CALL FIELDS(RSTART/Lscl,T1/Tscl,Et,Bt,DBDXt,DBDYt,DBDZt,DBDTt,DEDXt,DEDYt,DEDZt,DEDTt,Vft,T1,T2,rrr1,ttt1,etaa1)
+          ue=cross(Et,Bt)/dot(Bt,Bt)  !*0.5
+          if (c*c-c/(Ekin/m/c/c+1.0d0)*c/(Ekin/m/c/c+1.0d0)-vscl*vscl*dot(ue,ue) .gt. 0.0_num) exit
+        enddo
 	EKin=Ekin*6.242e18  !(convert to eV)
-	maxwellEfirst = .FALSE.
+	!maxwellEfirst = .FALSE.
        ELSE
-        Ekin=EKinLow+(EKinHigh-EKinLow)*pos_no_ekin/(EkinSteps*1.0d0)
+        if (EkinSteps .eq. 1) then
+          Ekin=EKinLow+(EKinHigh-EKinLow)*(pos_no_ekin+1)/(EkinSteps*1.0d0)
+        else
+          Ekin=EKinLow+(EKinHigh-EKinLow)*(pos_no_ekin)/((EkinSteps-1)*1.0d0)        ! Switch to this if want to have energy inclusive of endpoints
+        endif
+        !print *, 'main Ekin = ', Ekin, EKinLow,(EKinHigh-EKinLow),(pos_no_ekin+1),(EkinSteps*1.0d0)
        ENDIF
-       !print*, EKIN
+       if (print_number .eq. 1) print*, 'kinetic energy (in eV) = ', EKIN
        !alpha = pi/(no of steps+1) if fullangle is 1 (ie, steps from >=0 to >Pi (but not including Pi))
        !alpha = pi/2/(no of steps) if fullangle is 0 (steps from 0 to Pi/2 inclusive)
   
@@ -232,10 +278,19 @@ IMPLICIT NONE
        NKEEP = (NOK +NBAD)/NSTORE
 
       ! CALL WRITE_ENDTIME(RSTART,T2,MU,VPARSTART)
+
+        if (print_number .eq. 1) then
+        particle_tend = time8()
+        if (particle_tend .ne. particle_tstart) print *,'particle ',pn,' time elapsed = ',particle_tend - particle_tstart
+        endif
       
+       pos_no_ekin=pos_no_ekin+1
       END DO
+      pos_no_alpha=pos_no_alpha+1
+      pos_no_ekin=0
      END DO
-      pos_no_z=pos_no_z+1
+     pos_no_z=pos_no_z+1
+     pos_no_alpha=0
     END DO
     pos_no_y=pos_no_y+1
     pos_no_z=0
@@ -244,6 +299,9 @@ IMPLICIT NONE
    pos_no_y=0
   END DO
   IF (JTo4) CLOSE(49)
+  IF (JTo4) CLOSE(50)
+  IF (JTo4) CLOSE(51)
+  IF (JTo4) CLOSE(52)
  !CALL MAKEFILE(time_no)
   
  !END DO
@@ -267,10 +325,11 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART, Ekin,alpha,RSTART,T1,T2)
   REAL(num), INTENT(OUT) :: mu, gammastart, Ustart
   REAL(num), DIMENSION(3) :: B,El,a2,a3,a4,a5,a6,a7,a8,a9,a10,ue, RT
   !REAL(num) :: magB,vtot,vperp, vparstart!,Erest
-  REAL(num) :: modB,vtot, gamma
+  REAL(num) :: modB,vtot, gamma,rho,temperature,eta
  
  !calculate B, E, V at this point/time:
- CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2)
+ !CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2)
+ CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2,rho,temperature,eta)
 
  !calculate magnitude of B
  modB=B(1)*B(1)+B(2)*B(2)+B(3)*B(3)
@@ -289,6 +348,10 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART, Ekin,alpha,RSTART,T1,T2)
  
  gamma=Ekin/m/c/c*AQ+1.0d0
  
+ if (c*c-c/gamma*c/gamma-vscl*vscl*dot(ue,ue) .le. 0.0_num) then
+   print *, 'Warning: vtot calculation in JTMUcalc gives unphysical answer. This is most likely due to E cross B drift being faster than total energy of the particle. Need to rethink initial energy and/or location. Stopping.'
+   stop
+ endif
  ! vtot^2=vpar^2+vperp^2+UE^2!!, UE should NOT come out of Gamma!
  !vtot=c/gamma*sqrt(gamma*gamma-1)			! I *think* vtot is dimensional
  !vtot=sqrt(c*c/gamma/gamma*(gamma*gamma-1)-vscl*vscl*dot(ue,ue))
@@ -304,15 +367,7 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART, Ekin,alpha,RSTART,T1,T2)
  USTART=Ustart/vscl					! hence, non-dimensionalising..
  GAMMASTART=gamma
  mu=mu/m/vscl/vscl					! no bscl normalising factor - using normalised B's already!
- !PRINT*, 'vtot=', vtot
- !PRINT*, 'gamma=', gamma
- !PRINT*, 'mu=', mu
- !PRINT*, 'modB=', modB
-  !calculate mu
-  !mu=0.5_num*vperp*vperp/magB*gammastart*gammastart
- 
- ! WRITE (19,*) RStart,T1,Ekin,Alpha, mu*magB, 0.5_num*vparstart*vparstart
-  !WRITE (19,*) vtot,vperp,vparstart,El,B,magB,mu
+
 
 END SUBROUTINE
 

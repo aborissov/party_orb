@@ -10,10 +10,10 @@ MODULE global
  SAVE 
   
 !########################################################################## 
- CHARACTER(Len = 4), PARAMETER	:: FMOD='fre' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test", or "bor"
+ CHARACTER(Len = 4), PARAMETER	:: FMOD='l2d' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test", or "bor"
  INTEGER, PARAMETER		:: mysnap=0001	!  no. of ****.cfd/****.sdf file (if "l3d")
- INTEGER, PARAMETER		:: nframes=2	! no. of frames
- CHARACTER(Len = 40)		:: sloc='../../lare2d_runs/l2d_uniformfield/Data/'
+ INTEGER, PARAMETER		:: nframes=1	! no. of frames
+ CHARACTER(Len = 40)		:: sloc='lare2d_runs/Data/'
 
 !##########################################################################
 ! now some stuff required to plug in lare data 
@@ -30,7 +30,7 @@ MODULE global
  LOGICAL, PARAMETER		:: writervs=.TRUE.					! ARE WE WRITING? (ALWAYS TRUE!) 
  LOGICAL, PARAMETER		:: JTo=.TRUE., JTo2=.FALSE., JTo3=.FALSE., JTO4=.TRUE.	! various debugging switches (2&3 output every NSTP)
  LOGICAL, PARAMETER		:: FIELDDUMP=.FALSE.					! switch to dump the lare fields to unformatted data files.
- LOGICAL, PARAMETER		:: everystepswitch=.FALSE.				! dumps EVERY NSTP to each particle data file.
+ LOGICAL, PARAMETER		:: everystepswitch=.TRUE.				! dumps EVERY NSTP to each particle data file.
  
 !PARTICLE quantities: 								
  REAL(num), DIMENSION(3) 	:: R1,R2, tempr
@@ -41,13 +41,17 @@ MODULE global
  INTEGER			:: pn, nparticles
  INTEGER			:: p_restart_no, p_stop_no
  INTEGER 			:: EKinSteps, AlphaSteps
+
+ INTEGER                        :: adjust_timestep = 0                          ! AB 0 for fixed timestep, 1 for adjustable
+ INTEGER                        :: collisions = 1                               ! AB 0 for no collisions, 1 for collisions
+ INTEGER                        :: print_number = 1                             ! AB 0 for no printing particle number, 1 for printing particle number
  LOGICAL			:: p_restart=.FALSE., p_stop=.FALSE. 		! are we starting or stopping midway through the arrays?
  LOGICAL			:: RANDOMISE_R, RANDOMISE_A, RANDOMISE_E	! switches for randomising position, angle and energy (TWO WORK CURRENTLY!)
 
  LOGICAL		:: maxwellEfirst
  REAL(num), PARAMETER	:: maxwellpeaktemp= 1e6_num
  ! Local parameters
- REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
+REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
  
 ! CONSTANTS
  REAL(num), PARAMETER	:: pi = 3.1415926535897932_num
@@ -62,12 +66,9 @@ MODULE global
  REAL(num), PARAMETER	:: oneotwelve=1.0_num/12.0_num 
 
 ! NORMALISING SCALES 
- REAL(num), PARAMETER	:: Lscl = 1e5_num     		! 10 Mega meters (1e7)
- REAL(num), PARAMETER	:: Bscl = 0.001_num		! 100 Gauss 	 (0.01)
- !REAL(num), PARAMETER	:: Bscl = 1.0_num 		! 100 Gauss 	 (0.01)
- !REAL(num), PARAMETER	:: Escl = 1e3			! 10V/cm	 (1e3)
- !REAL(num), PARAMETER	:: Tscl = Lscl*Bscl/Escl        ! 100s	
- REAL(num), PARAMETER	:: Tscl = 100.0_num		! 100s	
+ REAL(num), PARAMETER	:: Lscl = 1.0E1_num     		! 10 Mega meters (1e7)
+ REAL(num), PARAMETER	:: Bscl = 0.03_num		! 100 Gauss 	 (0.01)
+ REAL(num), PARAMETER	:: Tscl = 4.82E-7_num		! 100s	
  REAL(num), PARAMETER	:: Escl = Lscl*Bscl/Tscl	! 10V/cm	 (1e3)
  REAL(num), PARAMETER	:: Vscl = Lscl/Tscl		! 10^7/10^2=10^5m/s=100km/s
  REAL(num), PARAMETER	:: Ekscl = M*Vscl*Vscl		! 10^10*9e-31=9e-21joules
@@ -77,7 +78,8 @@ MODULE global
  REAL(num), PARAMETER	:: myT1=0.0_num/Tscl
  REAL(num), PARAMETER	:: pscl=bscl*bscl/mu0_si			! Lare normalisation of pressure
  REAL(num), PARAMETER	:: rhoscl=bscl*bscl/mu0_si/vscl/vscl		! Lare normalisation of mass density
- REAL(num), PARAMETER	:: tempscl=pscl/rhoscl/Mp*kb			! Lare normalisation of temperature
+ !REAL(num), PARAMETER	:: tempscl=pscl/rhoscl/Mp*kb			! Lare normalisation of temperature
+ REAL(num), PARAMETER	:: tempscl=vscl*vscl*1.2*Mp/kb			! Lare normalisation of temperature AB
 
  LOGICAL, PARAMETER	:: lare_norm=.TRUE.	! TRUE if Lare output IS NORMALISED, else FALSE (so normalise varibles and derivs).
  						! (usually true, unless someone has messed with control.f90)
@@ -102,25 +104,24 @@ MODULE global
  REAL(num), PARAMETER	:: rat1=20.0_num	!r1=ratio of B1 to B0, B1=r1*B0 (in paper B1=20B0)
  REAL(num), PARAMETER	:: rat2=1e-6_num	!r2=ratio of a to z0, a=r2*z0	(in paper a=1/2,z0=5)
  REAL(num), PARAMETER	:: rat3=0.2_num		!r3=ratio of l to z0, l=r3*z0	(in paper ll=1,z0=5)
-
-  ! Kinematic Flux emergence model
- REAL(num), PARAMETER	:: Lx=sqrt(2.0_num)*5.0_num, Ly=1.0_num, Lz=5.0_num
- REAL(num), PARAMETER	:: tau=1.0_num*Tscl, tau_n=tau/Tscl
  REAL(num), PARAMETER	:: b0=Bscl, E0=Escl		! field setup in WS&H (2011)
  REAL(num), PARAMETER	:: L=Lscl, oL=1.0_num/L		! field setup in WS&H (2011)
  REAL(num), PARAMETER	:: z0=5.0_num*L
  REAL(num), PARAMETER	:: b1=rat1*b0, a=rat2*z0, ll=rat3*z0, oa=1.0_num/a, oll=1.0_num/ll 
  REAL(num), PARAMETER	:: xc=0.0_num, yc=0.0_num, zc=0.0_num		! center of flux ring
-
+ REAL(num), PARAMETER	:: tau_n=1.0_num, tau=1.0_num*Tscl
+! REAL(num), PARAMETER	:: xymult=10.0_num, zmult=1.0_num
 
  ! Lare field parameters
  ! (required by LARE modules)
 
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/0.1_num,99.9_num/),ye=(/-0.1_num,99.9_num/),ze=(/-19.5_num,79.5_num/)
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-0.9_num,0.9_num/),ye=(/-0.9_num,0.9_num/),ze=(/-100.00_num,100.0_num/)
-  REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-10.0_num,10.0_num/),ye=(/-10.0_num,10.0_num/),ze=(/0.0_num,80.0_num/)
+ REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-8.0_num,8.0_num/),ye=(/-6.1_num,6.1_num/),ze=(/-100.00_num,100.0_num/) ! working collision lare 2d grid
+ !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-80.0_num,80.0_num/),ye=(/-60.1_num,60.1_num/),ze=(/-100.00_num,100.0_num/) ! for testing
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=25.0_num
- REAL(num), PARAMETER			:: eta=0.0_num, jcrit=20.0_num, rwidth=0.05_num
+ !REAL(num), PARAMETER			:: eta=0.005_num, jcrit=0.9_num, rwidth=0.05_num
+ REAL(num), PARAMETER			:: jcrit=0.9_num, rwidth=0.05_num
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=20.0_num, rwidth=0.5_num
 
  CHARACTER(Len = 5), PARAMETER 	:: dloc='Data/'
@@ -129,13 +130,17 @@ MODULE global
  INTEGER, PARAMETER				:: mpireal = MPI_DOUBLE_PRECISION
  !INTEGER, PARAMETER				:: nx_global=64, ny_global=64, nz_global=64		! julie's lare3d cfd config
  !INTEGER, PARAMETER				:: nx_global=120, ny_global=120, nz_global=480		! alan's lare3d sdf config
- INTEGER, PARAMETER				:: nx_global=128, ny_global=128, nz_global=1		! James's lare2d cfd config
+ !INTEGER, PARAMETER				:: nx_global=128, ny_global=128, nz_global=1		! James's lare2d cfd config
+ !INTEGER, PARAMETER                             :: nx_global=256, ny_global=256, nz_global=1            ! James's lare2d cfd config
+ INTEGER, PARAMETER                             :: nx_global=512, ny_global=512, nz_global=1            ! James's lare2d cfd config
  INTEGER, PARAMETER 				:: data_dir_max_length = 64
  INTEGER 					:: nx, ny, nz	
  INTEGER, DIMENSION(:), ALLOCATABLE		:: dims
 
- REAL(num), DIMENSION(:, :, :,:), ALLOCATABLE 	:: bx, by, bz, vx, vy, vz
- REAL(num), DIMENSION(:, :, :), ALLOCATABLE 	:: jx, jy, jz, Ex, Ey, Ez
+ !REAL(num), DIMENSION(:, :, :,:), ALLOCATABLE 	:: bx, by, bz, vx, vy, vz, rho, temperature
+ !REAL(num), DIMENSION(:, :, :), ALLOCATABLE 	:: jx, jy, jz, Ex, Ey, Ez
+ REAL(num), DIMENSION(:, :, :,:), ALLOCATABLE 	:: bx, by, bz, vx, vy, vz, rho, temperature, eta, jx, jy, jz 
+ REAL(num), DIMENSION(:, :, :), ALLOCATABLE 	:: Ex, Ey, Ez
  REAL(num), DIMENSION(:, :, :), ALLOCATABLE 	:: dbxdx,dbxdy,dbxdz,dbydx,dbydy,dbydz,dbzdx,dbzdy,dbzdz
  REAL(num), DIMENSION(:, :, :), ALLOCATABLE 	:: dExdx,dExdy,dExdz,dEydx,dEydy,dEydz,dEzdx,dEzdy,dEzdz
  REAL(num), DIMENSION(:), 	ALLOCATABLE 	:: myx, myy, myz, ltimes
@@ -147,7 +152,7 @@ MODULE global
  
  !---BOURDIN DATA DEFINITIONS---! 
  CHARACTER(Len = 8)	:: filetypeb='.bin_f77'
- LOGICAL		:: bourdinflag, l3dflag, analyticalflag, l2dflag,FREflag, testflag, CMTflag
+ LOGICAL		:: bourdinflag, l3dflag, analyticalflag, l2dflag
  REAL(num), DIMENSION(2)	:: xee, yee, zee
   
   ! MPI data

@@ -6,7 +6,8 @@
 # --- make sure the right one is commented in the main body settings below
 
 # Set the compiler flags 
-FFLAGS = -O3 -J mod -fcheck=bounds -fno-range-check -g
+FFLAGS = -O3 -J mod -ffree-line-length-0 -fbounds-check -fno-range-check -g		
+#FFLAGS = -O3 -J mod -fcheck=bounds -fno-range-check -g			# original
 #FFLAGS = -o0 -J mod -C -fbounds-check -g -Wall #-fdefault-real-8 	# debugging flags
 #FFLAGS = -O3 -C -g -traceback -check all -warn all 			# mpif90 error flags
 #FFLAGS = -O3
@@ -35,7 +36,7 @@ PREPROFLAGS = $(NONMPIIO)
 
 
 OBJFILESN = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc_fields_mod.o \
-	nr_derivs_mod.o nr_rkck_mod.o nr_rkqs_mod.o nr_rkdrive_mod.o testfields_mod.o l2dc_fields_mod.o FRfields_mod.o \
+	nr_derivs_mod.o nr_rkck_mod.o nr_rkqs_mod.o nr_rkdrive_mod.o testfields_mod.o l2dc_fields_mod.o \
 	l3ds_fields_mod.o sdf_common.o sdf_job_info.o sdf_control.o sdf.o sdf_output_util.o\
 	sdf_input.o sdf_input_r4.o sdf_input_r8.o sdf_input_ru.o sdf_input_util.o l2ds_fields_mod.o\
 	sdf_input_cartesian.o sdf_input_cartesian_r4.o sdf_input_cartesian_r8.o sdf_input_cartesian_ru.o \
@@ -43,12 +44,12 @@ OBJFILESN = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc
 	sdf_input_station.o sdf_input_station_r4.o sdf_input_station_r8.o sdf_input_station_ru.o\
 	sdf_output.o sdf_output_r4.o sdf_output_r8.o sdf_output_ru.o sdf_output_source.o sdf_source_info.o\
 	sdf_output_cartesian.o sdf_output_cartesian_r4.o sdf_output_cartesian_r8.o sdf_output_cartesian_ru.o\
-	sdf_output_point.o sdf_output_point_r4.o sdf_output_point_r8.o sdf_output_point_ru.o \
+	sdf_output_point.o sdf_output_point_r4.o sdf_output_point_r8.o sdf_output_point_ru.o\
 	sdf_output_station.o sdf_output_station_r4.o sdf_output_station_r8.o sdf_output_station_ru.o\
 	iocontrol.o input.o inputfunctions.o input_cartesian.o iocommon.o bourdinfields_mod.o\
 	separatorfields_mod.o CMTfields_mod.o field_selector_mod.o gammadist_mod.o nr_main.o
-OBJFILESR = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc_fields_mod.o FRfields_mod.o\
-	r_derivs_mod.o r_rkck_mod.o r_rkqs_mod.o r_rkdrive_mod.o testfields_mod.o l2dc_fields_mod.o\
+OBJFILESR = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc_fields_mod.o \
+	r_derivs_mod.o r_rkck_mod.o r_rkqs_mod.o r_rkdrive_mod.o r_rkcol_mod.o testfields_mod.o l2dc_fields_mod.o\
 	l3ds_fields_mod.o sdf_common.o sdf_job_info.o sdf_control.o sdf.o sdf_output_util.o\
 	sdf_input.o sdf_input_r4.o sdf_input_r8.o sdf_input_ru.o sdf_input_util.o l2ds_fields_mod.o\
 	sdf_input_cartesian.o sdf_input_cartesian_r4.o sdf_input_cartesian_r8.o sdf_input_cartesian_ru.o \
@@ -114,7 +115,6 @@ input.o: input.f90 global_mod.o iocommon.o inputfunctions.o
 inputfunctions.o: inputfunctions.f90 global_mod.o iocommon.o  
 iocommon.o: iocommon.f90 global_mod.o 
 input_cartesian.o: input_cartesian.f90 iocommon.o inputfunctions.o 
-FRfields_mod.o: FRfields_mod.f90 global_mod.o products_mod.o 
 testfields_mod.o: testfields_mod.f90 global_mod.o products_mod.o
 separatorfields_mod.o: separatorfields_mod.f90 global_mod.o products_mod.o
 CMTfields_mod.o: CMTfields_mod.f90 global_mod.o products_mod.o
@@ -166,16 +166,17 @@ mpi_routines.o:mpi_routines.f90 global_mod.o l3dc_fields_mod.o l3ds_fields_mod.o
 l3ds_fields_mod.o: l3ds_fields_mod.f90 sdf_common.o global_mod.o sdf.o sdf_job_info.o lare_functions_mod.o
 l2ds_fields_mod.o: l2ds_fields_mod.f90 sdf_common.o global_mod.o sdf.o sdf_job_info.o lare_functions_mod.o
 bourdinfields_mod.o: bourdinfields_mod.f90 lare_functions_mod.o global_mod.o products_mod.o
-field_selector_mod.o: field_selector_mod.f90 lare_fields_mod.o lare_functions_mod.o CMTfields_mod.o separatorfields_mod.o testfields_mod.o bourdinfields_mod.o FRfields_mod.o global_mod.o
+field_selector_mod.o: field_selector_mod.f90 lare_fields_mod.o lare_functions_mod.o CMTfields_mod.o separatorfields_mod.o testfields_mod.o bourdinfields_mod.o global_mod.o
 ##--NREL DEPENDENCIES
 nr_derivs_mod.o: nr_derivs_mod.f90 global_mod.o field_selector_mod.o products_mod.o 
 nr_rkck_mod.o: nr_rkck_mod.f90 nr_derivs_mod.o global_mod.o field_selector_mod.o
 nr_rkqs_mod.o: nr_rkqs_mod.f90 global_mod.o nr_rkck_mod.o field_selector_mod.o
 nr_rkdrive_mod.o: nr_rkdrive_mod.f90 global_mod.o nr_derivs_mod.o nr_rkqs_mod.o field_selector_mod.o
 #--REL DEPENDENCIES
+r_rkcol_mod.o: r_rkcol_mod.f90 global_mod.o products_mod.o r_derivs_mod.o 
 r_derivs_mod.o: r_derivs_mod.f90 global_mod.o products_mod.o field_selector_mod.o
 r_rkck_mod.o: r_rkck_mod.f90 r_derivs_mod.o global_mod.o field_selector_mod.o
-r_rkqs_mod.o: r_rkqs_mod.f90 global_mod.o r_rkck_mod.o field_selector_mod.o
+r_rkqs_mod.o: r_rkqs_mod.f90 global_mod.o r_rkck_mod.o r_rkcol_mod.o field_selector_mod.o
 r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o field_selector_mod.o
 #mp
 nr_main.o: nr_main.f90 global_mod.o mpi_routines.o nr_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o bourdinfields_mod.o gammadist_mod.o

@@ -1,45 +1,69 @@
-FUNCTION derivs2, x, y
-common somename, epsilon
+FUNCTION derivs, x, y
+
+common somename, tt, FRon, len, an
 ;------------------------------------------------------------------
 ;******************************************************************
 ; right hand side of field line ODE
 ;******************************************************************
-!except=0
 ;
 ;JT B-field
-
-Lscl=5.0d0
+len=1e7
+bscl=0.01
+Lscl=1.0d0*len
 dydx = dblarr(3)
-Lx=sqrt(2.0d0)*Lscl
-Lz=Lscl
-Ly=1.0d0
 
-;Bx=-1.0d0-epsilon*(1.0d0-y[2]*y[2]/Lscl/Lscl)/((1.0d0+y[2]*y[2]/Lscl/Lscl)*(1.0d0+y[1]*y[1]/Lscl/Lscl))
-;By=0.2d0
-;Bz=y[0]
-; Bx=-1.0d0-epsilon*(1.0d0-y[1]*y[1]/Lscl/Lscl)/((1.0d0+y[1]*y[1]/Lscl/Lscl)^2*(1.0d0+y[2]*y[2]/Lscl/Lscl))
-; By=y[0]
-; Bz=0.2d0
- Bx=0.2d0
- By=-1.0d0-epsilon*(1.0d0-y[2]*y[2]/Lz/Lz)/((1.0d0+y[2]*y[2]/Lz/Lz)^2*(1.0d0+y[0]*y[0]/Lx/Lx))
- Bz=y[1]/Ly
+; constants:
+b0=1.0d0*bscl    ; 	B0 - eq field B strength
+b1=20.0d0*b0 ; 	B1 - flux ring B strength
+
+z0=5.0d0*lscl	; 	null position (+/-Z0)
+xc=0.0d0*lscl   ; 	flux ring centre in x
+yc=0.0d0*lscl  	;	    	    	    y    	    	    
+zc=0.0d0*lscl 	;	    	    	    z
+a=0.1d*z0   	; a, relates to radius of flux ring
+oa=1.0d0/a   
+ll=0.2d*z0
+oll=1.0d0/ll	; l, relates to height
+;oan=L/a   
+;oln=L/z0	    ; l, relates to height
+
+
+Bx=b0*y[0]*(y[2]-3*z0)/Lscl/Lscl
+By=b0*y[1]*(y[2]+3*z0)/Lscl/Lscl
+Bz=b0*0.5d*(z0*z0-y[2]*y[2]+y[1]*y[1]+y[0]*y[0])/Lscl/Lscl
+
+ ;now the general form of the flux ring
+fring=exp(-(y[0]-xc)*(y[0]-xc)*oa*oa-(y[1]-yc)*(y[1]-yc)*oa*oa-(y[2]-xc)*(y[2]-xc)*oll*oll)
+Bfx=-2.0d0*b1*oa*(y[1]-yc)*fring
+Bfy=2.0d0*b1*oa*(y[0]-xc)*fring
+Bfz=0.0d0
  
- dydx[0]=Bx
- dydx[1]=By
- dydx[2]=Bz
-
+; the field line tracker can be called at various positions and times.
+; make it so that there is a distinction between including/not including flux ring for ANY time. 
+ IF FRon THEN BEGIN
+  ;print, 'on'	 
+  dydx[0]=Bx+tt*Bfx
+  dydx[1]=By+tt*Bfy
+  dydx[2]=Bz+tt*Bfz
+ ENDIF ELSE BEGIN
+  ;print, 'off'
+  dydx[0]=Bx
+  dydx[1]=By
+  dydx[2]=Bz
+ ENDELSE 
  
 return, dydx
 end
-
 ;##################################################################
 ; Runge-Kutta routines with adaptive step size control taken
 ; from Numerical Recipes
 ; rk4 from idl lib
 ;##################################################################
+
+
 PRO RKQC, y, dydx,x,htry,eps,yscal,hdid,hnext,string1
 
-common somename, epsilon
+common somename, tt, FRon,len, an
 ;----------------------------------------------------
 ; *****************************************************************
 ;  RKQC is the stepper routine which makes one adaptive step 
@@ -83,7 +107,7 @@ ytemp=rk4(ysav,dysav,xsav,hh,string1)
 
 x=xsav+hh
 
-dydx=derivs2(x,ytemp)
+dydx=derivs(x,ytemp)
 y=rk4(ytemp,dydx,x,hh,string1)
 
 ;-----------------------------------------------------------------
@@ -140,11 +164,11 @@ end ;_____of RKQC
 ;*****************************************************************
 
 PRO ODEINT, ystart,eps,h1,string1, yp
-!except=0
-common somename, epsilon
+
+common somename, tt, FRon, len, an
 ;common path, kount;, yp
 ;maxsteps = 1e4-2
-maxsteps=5000
+maxsteps=500
 tiny = 1.0e-20
 
 ;-----------------------------------------------------------------
@@ -164,7 +188,7 @@ yp(*,0) = ystart(*)
 ; start integrating ODE
 ;-----------------------------------------------------------------
 for iit=1,maxsteps do begin
-	dydx = derivs2(x,y)
+	dydx = derivs(x,y)
 ;-----------------------------------------------------------------
 ; for monitoring accuracy; see Numerical Recipes for explanation
 ;-----------------------------------------------------------------
@@ -176,19 +200,12 @@ for iit=1,maxsteps do begin
   kount = kount + 1
   yp=[[yp],[dblarr(3)]]
   yp(*,kount) = y(*)
-  IF ((ABS(y(0)) GT 10.0) OR (ABS(y(1)) GT 10.0) OR (y(2) GT 40.0) OR (y(2) LT 0.0)) THEN BEGIN
-  ;IF ((ABS(y(0)) GT 10.0) OR (ABS(y(2)) GT 10.0) OR (y(1) GT 20.0) OR (y(1) LT 0.0)) THEN BEGIN
-  ;IF ((ABS(y(0)) GT 10.0) OR (ABS(y(1)) GT 10.0) OR (y(2) GT 20.0) OR (y(2) LT 0.0)) THEN BEGIN
-  ;IF ((ABS(y(0)) GT 10.0) OR (ABS(y(2)) GT 10.0) OR (y(1) GT 20.0) OR (y(1) LT 0.0)) THEN BEGIN
-  ;IF ((ABS(y(0)) GT 10.0) OR (y(2) LT 0.0) OR (y(2) GT 20.0) OR (y(1) GT 20.0) OR (y(1) LT 0.0)) THEN BEGIN
+  IF ((ABS(y(0)) GT 10.0*len) OR (ABS(y(1)) GT 10.0*len) OR (ABS(y(2)) GT 7.5*len)) THEN BEGIN
    return
   ENDIF
   ;print, y(*)
   ;STOP
-
-  ; limiting step size growth  
-  IF abs(hnext) lt 0.1 THEN h = hnext
-  
+  h = hnext
   
 endfor
 end;____________of ODEINT

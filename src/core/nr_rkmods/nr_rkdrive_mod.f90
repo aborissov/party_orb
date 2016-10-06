@@ -41,7 +41,7 @@ SUBROUTINE RKDRIVE(RSTART,VPARSTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  REAL(num), DIMENSION(4)		:: RSCAL 
  REAL(num), DIMENSION(NKEEPMAX)		:: TT
  REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
- REAL(num) 				:: H, HDID, HNEXT, T
+ REAL(num) 				:: H, HDID, HNEXT, T, rho,temperature,eta
  REAL(num) 				:: VPAR, VPARSTART, DVPARDT
  REAL(num) 				:: efct,e1,e2,e3, vtot_non
  REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar
@@ -76,7 +76,8 @@ UNDERFLOW=0
 
 !print*, "R=", R
  CALL DERIVS (T, R, DRDT, VPAR, DVPARDT,MU,T1,T2, UGB, UC)
- CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
  bb=B/sqrt(dot(B,B))
  UE=Vscl*cross(E,B)/dot(B,B)
  Epar=dot(E,bb)
@@ -200,7 +201,8 @@ UNDERFLOW=0
     TT((NSTP/NSTORE)+1) = T	
     
     CALL DERIVS (T, R, DRDT, VPAR, DVPARDT,MU,T1,T2, UGB, UC)
-    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+    !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
     
     IF (((bourdinflag).OR.(l3dflag).OR.(l2dflag)).AND.(SUM(E).EQ.0.0_num).AND.(SUM(B).EQ.0.0_num) &
  			      .AND.(SUM(DBDX).EQ.0.0_num).AND.(SUM(DBDY).EQ.0.0_num) &
@@ -305,7 +307,8 @@ UNDERFLOW=0
       open(55,file=tempf,recl=1024,status='unknown')
    
    
-      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+      !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
       bb=B/sqrt(dot(B,B))
       UE=Vscl*cross(E,B)/dot(B,B)
       Epar=dot(E,bb)

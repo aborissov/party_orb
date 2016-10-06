@@ -4,6 +4,7 @@ MODULE M_driverR
     USE M_derivsR, ONLY: DERIVS 
     USE M_rkqsR, ONLY: RKQS
     USE M_fields, ONLY: FIELDS
+    USE M_rkcolR
     USE M_products, ONLY: DOT, CROSS
 
 IMPLICIT NONE
@@ -34,14 +35,14 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  REAL(num), DIMENSION(3)		:: bb, GRADB
  REAL(num), DIMENSION(3)		:: ENERGY
  REAL(num), DIMENSION(3)		:: UE
- REAL(num), DIMENSION(5)		:: RSCAL 
+ REAL(num), DIMENSION(5)		:: RSCAL, RERR
  REAL(num), DIMENSION(NKEEPMAX)		:: TT
  REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
  REAL(num) 				:: H, HDID, HNEXT, T
  REAL(num) 				:: U, USTART, DUDT, vpar
  REAL(num) 				:: GAMMA, GAMMASTART, DGAMMADT
- REAL(num) 				:: efct,e1,e2,e3, vtot_non, ek
- REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar
+ REAL(num) 				:: efct,e1,e2,e3, vtot_non, ek,rho,temperature,eta
+ REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar, theta
  REAL(num)				:: MODB, oMODB,  DMODBDS, MODGRADB
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
@@ -63,7 +64,7 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
 UNDERFLOW=0
 
  efct=oneuponAQ
- IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,pn    !
+ IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,pn    ! particleno in old code
  IF (writervs)  open(29,file=rvfilename,recl=1024,status='unknown')     	 
  IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')"),dlocR,pn    !
  IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')"),dlocR,pn    !
@@ -72,9 +73,8 @@ UNDERFLOW=0
  IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,pn    !
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
  
-!print*, "R=", R
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
- CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
  bb=B/sqrt(dot(B,B))
  
  UE=cross(E,B)/dot(B,B)
@@ -85,7 +85,6 @@ UNDERFLOW=0
  GRADB(3) = DOT(B,DBDZ)*oMODB
  MODGRADB=SQRT(GRADB(1)*GRADB(1)+GRADB(2)*GRADB(2)+GRADB(3)*GRADB(3))
  
- !PRINT*, 'ini E-field:', E
  
  vpar=U/GAMMA
  Epar=dot(bb,E)
@@ -110,6 +109,8 @@ UNDERFLOW=0
  gyroperiod=1.0_num/gyrofreq
  !gyrorad=sqrt((e2+e3)*AQoM*2.0_num)/gyrofreq
  gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))
+   theta = atan(sqrt(2.0_num*mu*modB)/U)
+   if (theta .lt. 0) theta = pi + theta
  
   CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT, MU, T1, T2)
   
@@ -124,28 +125,41 @@ UNDERFLOW=0
   e2,							&   !15
   e3,							&   !16
   ek,							&   !17  
-  gamma,						&   !18
+  sqrt(dot(Vf,Vf))*Vscl,			        &   !18
   Escl*Epar,						&   !19
   vscl*UE,						&   !20,21,22
   vscl*U,						&   !23
-  Vscl*DRDT,						&   !24,25,26
-  gyrofreq,gyroperiod,gyrorad				   !27,28,29
+  Vscl*Vf,						&   !24,25,26
+  gyrofreq,gyroperiod,gyrorad,				&   !27,28,29
+  theta, temperature*tempscl, eta*Vscl*Lscl*mu0_si          !30,31,32
+    
+  IF (JTo4) write(50,*), R*Lscl, EPAR*Escl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+  !print *, 'rkdrive epsilon = ', m*Escl/(q*Bscl*Bscl*Lscl)
 
 !****************************** Main Time-Loop Starts **************
   !PRINT *, "R=",R
   !PRINT *, "VPARSTART=",VPARSTART
   !PRINT *, "Tscl*(T-T1)=",Tscl*(T-T1)
   !PRINT *, "H=",H
-  !PRINT *, "Vpar=",Vpar
-  !PRINT*, Epar*Escl
+  !PRINT *, "rkdrive B=",B
   
   DO NSTP = 1, NSTPMAX
+   if (collisions .eq. 1) call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature)
+   if (isnan(U)) then
+     IF (JTo4) write(51,*) pn,RSTART,USTART,GAMMASTART
+     exit
+   endif
    CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU, T1, T2)
+   CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
    vpar=U/GAMMA
    ek=efct*(gamma-1)*m*c*c
    bb=B/sqrt(dot(B,B))
    UE=cross(E,B)/dot(B,B)
    Epar=dot(bb,E)
+  !PRINT*, 'r_rkdrive Epar = ', Epar*Escl
+  !print *, 'r_rkdrive epar 2= ', (E(1)*B(1) + E(2)*B(2) + E(3)*B(3))/sqrt(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))
+  !print *, 'rkdrive fields E = ', E, ' B = ', B
+
 
    MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
    oMODB=1.0_num/MODB
@@ -158,6 +172,8 @@ UNDERFLOW=0
    gyrofreq=AQoM*Bscl*sqrt(dot(B,B))
    gyroperiod=1.0_num/gyrofreq
    gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))
+   theta = atan(sqrt(2.0_num*mu*modB)/U)
+   if (theta .lt. 0) theta = pi + theta
    
    !PRINT*, '--------------------------'
    !print 667, NSTP,NSTPMAX, R, B, E
@@ -174,12 +190,13 @@ UNDERFLOW=0
     e2,							&   !15
     e3,							&   !16
     ek,							&   !17  
-    gamma,						&   !18
+    sqrt(dot(Vf,Vf))*Vscl,				&   !18
     Escl*Epar,						&   !19
     vscl*UE,						&   !20,21,22
     vscl*U,						&   !23
-    Vscl*DRDT,						&   !24,25,26
-    gyrofreq,gyroperiod,gyrorad				   !27,28,29
+    Vscl*Vf,						&   !24,25,26
+    gyrofreq,gyroperiod,gyrorad,			&   !27,28,29
+    theta, temperature*tempscl, eta*Vscl*Lscl*mu0_si          !30,31,32
    
    DO I = 1,3       !Scaling used to monitor accuracy
     RSCAL(I) = ABS(R(I))+ABS(H*DRDT(I)) + TINY
@@ -192,14 +209,9 @@ UNDERFLOW=0
     H=T2-T  			 !if stepsize can overshoot, decrease
    END IF 
 
-   !print 668, R
-   !668 format ('R2=[',ES9.2,',',ES9.2,',',ES9.2,']')
 
-   CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, UNDERFLOW)	! T modified here.
-   
-   !print 680, R
-   !680 format ('R4=[',ES9.2,',',ES9.2,',',ES9.2,']')
-    
+   CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,B,UNDERFLOW,RERR) ! T modified here.
+
     MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
     oMODB=1.0_num/MODB
     GRADB(1) = DOT(B,DBDX)*oMODB
@@ -209,9 +221,6 @@ UNDERFLOW=0
     
     DMODBDS=dot(B,B(1)*DBDX+B(2)*DBDY+B(3)*DBDZ)*oMODB*oMODB
     gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))/lscl
-    
-   ! print*, 'NSTP:', nstp, 'T=', t
-   ! print*, '|b|=', modb
     
    IF (JTo2) write(56,*) NSTP, T, H, DUDT, DRDT, DGAMMADT
    IF (JTo3) write(57,*)	NSTP, B, DBDX, DBDY, DBDZ, E, &
@@ -228,7 +237,8 @@ UNDERFLOW=0
     !print 1001, T
     !1001 format ("ERROR: small timestep, not enough points in T array, exiting at T=",ES9.2)
     print*, 'ERROR: small timestep, not enough points in T array, EXITING..'
-    IF (JTo4) write(49,*), 'S'
+    !IF (JTo4) write(49,*), 'S'
+    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
@@ -245,7 +255,7 @@ UNDERFLOW=0
     TT((NSTP/NSTORE)+1) = T	
     
     CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
-    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
     
  
     IF (((bourdinflag).OR.(l3dflag).OR.(l2dflag)).AND.(SUM(E).EQ.0.0_num).AND.(SUM(B).EQ.0.0_num) &
@@ -255,7 +265,8 @@ UNDERFLOW=0
 !			      .AND.(SUM(DBDT).EQ.0.0_num).AND.(SUM(DEDT).EQ.0.0_num) &
     			      .AND.(SUM(Vf).EQ.0.0_num)) THEN	! not technically beyond bourdin range
     print *, 'special box extent exit'
-    IF (JTo4) write(49,*), 'B'
+    !IF (JTo4) write(49,*), 'B'
+    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
@@ -289,6 +300,8 @@ UNDERFLOW=0
     gyrofreq=AQoM*Bscl*sqrt(dot(B,B))
     gyroperiod=1.0_num/gyrofreq
     gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))
+   theta = atan(sqrt(2.0_num*mu*modB)/U)
+   if (theta .lt. 0) theta = pi + theta
     
       IF (writervs)  write(29,*)Tscl*(T-T1),	&   !1
       Lscl*R,						&   !2,3,4
@@ -301,19 +314,22 @@ UNDERFLOW=0
       e2,						&   !15
       e3,						&   !16
       ek,						&   !17  
-      gamma,						&   !18
+      sqrt(dot(Vf,Vf))*Vscl,						&   !18
       Escl*Epar,					&   !19
       vscl*UE,						&   !20,21,22
       vscl*U,						&   !23
-      Vscl*DRDT,					&   !24,25,26
-      gyrofreq,gyroperiod,gyrorad			   !27,28,29
+      Vscl*Vf,					        &   !24,25,26
+      gyrofreq,gyroperiod,gyrorad,			&   !27,28,29
+      theta, temperature*tempscl, eta*Vscl*Lscl*mu0_si          !30,31,32
     ENDIF	!(ends mod(nstp,nstore) loop)
 
     ! EXIT CRITERIA:
     ! normal exit (if time is up):
     IF((T-T2)*(T2-T1) >= 0.) THEN         !Are we done?
-      PRINT *, 'time exit'
-      IF (JTo4) write(49,*), 'T'
+      if (print_number .eq. 1) PRINT *, 'time exit'
+      !IF (JTo4) write(49,*), 'T'
+      IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+      IF (JTo4) write(52,*), pn,1
       !print*, Tscl*T
       DO I = 1,3
         RSTART(I)=R(I)
@@ -325,13 +341,14 @@ UNDERFLOW=0
     ENDIF
 
 ! JT exit conditions:
-   IF ( ((analyticalflag).OR.(l3dflag).OR.(l2dflag).OR. &
-   (bourdinflag).OR.(testflag).OR.(FREflag).OR.(CMTflag)) &
+   IF (((analyticalflag).OR.(l3dflag).OR.(l2dflag).OR.(bourdinflag)) &
    			    .AND.((R(1).GE.xe(2)).OR.(R(1).LE.xe(1)) &	! beyond simulation range
     			      .OR.(R(2).GE.ye(2)).OR.(R(2).LE.ye(1)) &
 			      .OR.(R(3).GE.ze(2)).OR.(R(3).LE.ze(1)))) THEN
     print *, 'box extent exit'
-    IF (JTo4) write(49,*), 'B'
+    !IF (JTo4) write(49,*), 'B'
+    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+    IF (JTo4) write(52,*), pn,2
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
@@ -340,9 +357,11 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     RETURN
    ENDIF
-   IF ((abs(H).lt.EPS).AND.(abs(HNEXT).lt.EPS)) THEN ! both this and the next step are unbelievably small so quit before we get stuck!
+   IF ((abs(H).lt.EPS).AND.(abs(HNEXT).lt.EPS).AND.(adjust_timestep.eq.1)) THEN ! both this and the next step are unbelievably small so quit before we get stuck!
     print *, 'timestep shrink'
-    IF (JTo4) write(49,*), 'H'
+    !IF (JTo4) write(49,*), 'H'
+    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+    IF (JTo4) write(52,*), pn,3
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
@@ -353,12 +372,15 @@ UNDERFLOW=0
    ENDIF
    IF (UNDERFLOW.EQ.1) THEN	! JT fix to array overallocation in l.143
     print*, 'ERROR: timestep UNDERFLOW in RKQS, EXITING..'
-    IF (JTo4) write(49,*), 'U'
+    !IF (JTo4) write(49,*), 'U'
+    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+    IF (JTo4) write(52,*), pn,4
     IF (JTo3) THEN
       WRITE(tempfile,"(A,'O',I8.8,'.ufl')"),dlocR,pn    !
       open(55,file=tempfile,recl=1024,status='unknown')
     
-      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+      !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
     
       vpar=U/GAMMA
       ek=efct*(gamma-1)*m*c*c
@@ -410,7 +432,9 @@ UNDERFLOW=0
    
   ENDDO                      !if we get to nstpmax...
  PRINT *, 'NSTP Loop ended'
- IF (JTo4) 	write(49,*), 'N'
+ !IF (JTo4) 	write(49,*), 'N'
+ IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+ IF (JTo4) write(52,*), pn,5
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
  IF (writervs)	CLOSE(29)

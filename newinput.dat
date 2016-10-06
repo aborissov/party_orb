@@ -1,37 +1,37 @@
 &inputdata
 
-T1=0.0
-T2=100.0
+T1=55.00
+T2=55.05
 
-H1=0.00001	
+H1=5.0E-9
 EPS=1.0E-15
 
-AlphaSteps=2
-AlphaMin=45.0
-AlphaMax=45.0
+AlphaSteps=34
+AlphaMin=10.0
+AlphaMax=170.0
 
-R1(1)=-9.9E5
-R2(1)=9.9E5
-RSTEPS(1)=32
+R1(1)=-1.8E1
+R2(1)=1.8E1
+RSTEPS(1)=20
 
-R1(2)=-9.9E5
-R2(2)=9.9E5
-RSTEPS(2)=32
+R1(2)=1.0E1
+R2(2)=1.0E1
+RSTEPS(2)=1
 
-R1(3)=0.5E5
-R2(3)=8.0E5
-RSTEPS(3)=8
+R1(3)=0.0E1
+R2(3)=0.0E1
+RSTEPS(3)=1
 
-EkinLow=2e1
-EkinHigh=2e1
-EkinSteps=1
+EkinLow=1.0e1
+EkinHigh=32.0e1
+EkinSteps=32
 
 p_restart=.FALSE.
-p_restart_no=00
+p_restart_no=5
 
 p_stop=.FALSE.
-p_stop_no=00
+p_stop_no=04
 
-RANDOMISE_R=.TRUE.
-RANDOMISE_A=.TRUE.
-RANDOMISE_E=.TRUE./
+RANDOMISE_R=.FALSE.
+RANDOMISE_A=.FALSE.
+RANDOMISE_E=.FALSE./

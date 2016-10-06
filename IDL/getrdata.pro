@@ -3,7 +3,7 @@ drifts=drifts, rdotperp=rdotperp, ke=ke, vpar=vpar,all=all, gyro=gyro, rel=rel, 
 on_error, 2
 
 IF n_elements(wkdir) eq 0 THEN wkdir="Data/DataR/"
-IF n_elements(n_c) eq 0 THEN n_c=29
+IF n_elements(n_c) eq 0 THEN n_c=32
 
 
 files=FINDFILE(wkdir+'RV*.dat',count=count)
@@ -65,7 +65,10 @@ IF keyword_set(gyro) or keyword_set(all) THEN BEGIN
  gyrofreq=transpose(A(26,*))
  gyroperiod=transpose(A(27,*)) 
  gyrorad=transpose(A(28,*))
- thedata=create_struct(thedata,{gyrof:gyrofreq,gyrop:gyroperiod,gyror:gyrorad})
+ theta=transpose(A(29,*))
+ temperature=transpose(A(30,*))
+ eta=transpose(A(31,*))
+ thedata=create_struct(thedata,{gyrof:gyrofreq,gyrop:gyroperiod,gyror:gyrorad,theta:theta,temperature:temperature,eta:eta})
 ENDIF
 IF keyword_set(epar) or keyword_set(all) THEN BEGIN
  epar=transpose(A(18,*))
@@ -76,8 +79,9 @@ IF keyword_set(rel) or keyword_set(all) THEN BEGIN
  upar=transpose(A(22,*))
  ;drdt=transpose([[transpose(A(19,*))],[transpose(A(20,*))],[transpose(A(21,*))]])
  drdt=transpose([[transpose(A(23,*))],[transpose(A(24,*))],[transpose(A(25,*))]]) 
- epar=transpose(A(18,*))
- thedata=create_struct(thedata,{gamma:gamma,upar:upar,epar:epar,drdt:drdt})
+ ;epar=transpose(A(18,*))
+ thedata=create_struct(thedata,{gamma:gamma,upar:upar,drdt:drdt})
+ ;thedata=create_struct(thedata,{gamma:gamma,upar:upar,epar:epar,drdt:drdt})
 ENDIF
 return, thedata
 
