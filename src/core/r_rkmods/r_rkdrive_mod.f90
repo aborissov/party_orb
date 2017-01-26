@@ -14,7 +14,7 @@ IMPLICIT NONE
 
   CONTAINS
 
-SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+SUBROUTINE RKDRIVE(PAR_NUM,RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  !##################################################################
  !Driver routine with adaptive stepsize control. It goes from T1 to
  !T2 with accuracy eps. Hmin is the minimum allowed stepsize. nok and 
@@ -26,9 +26,10 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  INTEGER				:: NOK, NBAD
  INTEGER				:: I 
  INTEGER				:: UNDERFLOW
+ INTEGER, INTENT(IN)                    :: par_num
  REAL(num), PARAMETER			:: TINY=1E-20
- REAL(num), INTENT(IN)			:: EPS, H1,MU
- REAL(num), INTENT(INOUT)		:: T1,T2
+ REAL(num), INTENT(IN)			:: EPS, H1
+ REAL(num), INTENT(INOUT)		:: T1,T2,MU
  REAL(num), INTENT(INOUT), DIMENSION(3) :: RSTART
  REAL(num), DIMENSION(3)		:: DRDT, R
  REAL(num), DIMENSION(3)		:: E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf
@@ -36,9 +37,11 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  REAL(num), DIMENSION(3)		:: ENERGY
  REAL(num), DIMENSION(3)		:: UE
  REAL(num), DIMENSION(5)		:: RSCAL, RERR
- REAL(num), DIMENSION(NKEEPMAX)		:: TT
- REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
- REAL(num) 				:: H, HDID, HNEXT, T
+ !REAL(num), DIMENSION(NKEEPMAX)		:: TT
+ !REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
+ REAL(num)              		:: TT           ! what does this variable do?
+ REAL(num), DIMENSION(3)        	:: S, TOTAL     ! what do these variables do?
+ REAL(num) 				:: H, HDID, HNEXT, T, H0, H_old
  REAL(num) 				:: U, USTART, DUDT, vpar
  REAL(num) 				:: GAMMA, GAMMASTART, DGAMMADT
  REAL(num) 				:: efct,e1,e2,e3, vtot_non, ek,rho,temperature,eta
@@ -46,34 +49,42 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  REAL(num)				:: MODB, oMODB,  DMODBDS, MODGRADB
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
+ integer                                :: collisions_initial
+ real(num)                              :: U_old,mu_old,gamma_old
+
+ call mpi_comm_size(mpi_comm_world,nproc,errcode)
 
   T=T1
-  TT(1) = T1
+  !TT(1) = T1
+  TT = T1
   H=SIGN(H1,T2-T1)
+  H0 = H
   NOK = 0
   NBAD = 0
   DO I = 1,3
    R(I) = RSTART(I)
-   S(1,I) = RSTART(I)
+   !S(1,I) = RSTART(I)
   ENDDO
   U = USTART
   GAMMA = GAMMASTART
-  DO I=1,3
-   TOTAL(1,I) = 0.
-  END DO
+  !DO I=1,3
+  ! TOTAL(1,I) = 0.
+  !END DO
 UNDERFLOW=0
 
  efct=oneuponAQ
- IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,pn    ! particleno in old code
+ IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,par_num    ! particleno in old code
  IF (writervs)  open(29,file=rvfilename,recl=1024,status='unknown')     	 
- IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')"),dlocR,pn    !
- IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')"),dlocR,pn    !
+ IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')"),dlocR,par_num    !
+ IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')"),dlocR,par_num    !
  IF (JTo2)  open(56,file=tempfile2,recl=1024,status='unknown')
- IF ((JTo3).AND.(q.gt.0)) WRITE(tempfile3,"(A,'f',I8.8,'p.tmp')"),dlocR,pn    !
- IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,pn    !
+ IF ((JTo3).AND.(q.gt.0)) WRITE(tempfile3,"(A,'f',I8.8,'p.tmp')"),dlocR,par_num    !
+ IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,par_num    !
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
  
+!print*, "R=", R
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
+ !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
  bb=B/sqrt(dot(B,B))
  
@@ -85,6 +96,7 @@ UNDERFLOW=0
  GRADB(3) = DOT(B,DBDZ)*oMODB
  MODGRADB=SQRT(GRADB(1)*GRADB(1)+GRADB(2)*GRADB(2)+GRADB(3)*GRADB(3))
  
+ !PRINT*, 'ini E-field:', E
  
  vpar=U/GAMMA
  Epar=dot(bb,E)
@@ -122,7 +134,7 @@ UNDERFLOW=0
   Escl*E,						&   !8,9,10
   Bscl*B,						&   !11,12,13
   vscl*vtot_non,					&   !14 vtot_non
-  e2,							&   !15
+  H*tscl,							&   !15
   e3,							&   !16
   ek,							&   !17  
   sqrt(dot(Vf,Vf))*Vscl,			        &   !18
@@ -133,7 +145,17 @@ UNDERFLOW=0
   gyrofreq,gyroperiod,gyrorad,				&   !27,28,29
   theta, temperature*tempscl, eta*Vscl*Lscl*mu0_si          !30,31,32
     
-  IF (JTo4) write(50,*), R*Lscl, EPAR*Escl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+  if (nproc .eq. 1) then
+    IF (JTo4) write(50,*), par_num,R*Lscl, EPAR*Escl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl
+  else
+    finish_data%s_pos = R*Lscl
+    finish_data%s_par_vel = VPAR*Lscl/Tscl
+    finish_data%s_perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+    finish_data%s_kin_e = (gamma - 1.0)*m*c*c/qp
+    finish_data%s_p_angle = theta
+    finish_data%s_rho = rho*rhoscl
+    finish_data%par_num = par_num
+  endif
   !print *, 'rkdrive epsilon = ', m*Escl/(q*Bscl*Bscl*Lscl)
 
 !****************************** Main Time-Loop Starts **************
@@ -143,12 +165,22 @@ UNDERFLOW=0
   !PRINT *, "H=",H
   !PRINT *, "rkdrive B=",B
   
+  H_old = H
   DO NSTP = 1, NSTPMAX
-   if (collisions .eq. 1) call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature)
-   if (isnan(U)) then
-     IF (JTo4) write(51,*) pn,RSTART,USTART,GAMMASTART
-     exit
+   if ((scattering .eq. 1) .and. (eta .ne. 0.0_num)) then
+        H = H_old
+        call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature,rho)
    endif
+   do while (isnan(U))
+     IF (JTo4 .and. (nproc .eq. 1)) write(51,*) par_num,RSTART,USTART,GAMMASTART
+     exit
+     !mu = mu_old
+     !gamma = gamma_old
+     !U = U_old
+     !H = H/2.0_num
+     !!print *, 'rkcol U was nan, trying again'
+     !call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature)
+   enddo
    CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU, T1, T2)
    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
    vpar=U/GAMMA
@@ -187,7 +219,7 @@ UNDERFLOW=0
     Escl*E,						&   !8,9,10
     Bscl*B,						&   !11,12,13
     vscl*vtot_non,					&   !14 vtot_non
-    e2,							&   !15
+    H*tscl,							&   !15
     e3,							&   !16
     ek,							&   !17  
     sqrt(dot(Vf,Vf))*Vscl,				&   !18
@@ -209,9 +241,27 @@ UNDERFLOW=0
     H=T2-T  			 !if stepsize can overshoot, decrease
    END IF 
 
+   !print 668, R
+   !668 format ('R2=[',ES9.2,',',ES9.2,',',ES9.2,']')
 
-   CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,B,UNDERFLOW,RERR) ! T modified here.
+   !CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, UNDERFLOW)	! T modified here.
+   if ((scattering .eq. 0) .or. (eta .eq. 0.0_num)) then
+      collisions = 0
+      CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,B,UNDERFLOW,RERR) ! T modified here.
+   else if ((scattering .eq. 1) .and. (eta .ne. 0.0_num)) then
+      collisions = 1
+      CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,B,UNDERFLOW,RERR) ! T modified here.
+   else
+      print *, 'rkdrive: make up your mind on what timestep you want. stopping'
+      stop
+   endif
+   !print *, 'rkdrive 246 H = ', H*tscl, HDID*tscl, HNEXT*tscl
 
+
+   
+   !print 680, R
+   !680 format ('R4=[',ES9.2,',',ES9.2,',',ES9.2,']')
+    
     MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
     oMODB=1.0_num/MODB
     GRADB(1) = DOT(B,DBDX)*oMODB
@@ -221,6 +271,9 @@ UNDERFLOW=0
     
     DMODBDS=dot(B,B(1)*DBDX+B(2)*DBDY+B(3)*DBDZ)*oMODB*oMODB
     gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))/lscl
+    
+   ! print*, 'NSTP:', nstp, 'T=', t
+   ! print*, '|b|=', modb
     
    IF (JTo2) write(56,*) NSTP, T, H, DUDT, DRDT, DGAMMADT
    IF (JTo3) write(57,*)	NSTP, B, DBDX, DBDY, DBDZ, E, &
@@ -238,13 +291,28 @@ UNDERFLOW=0
     !1001 format ("ERROR: small timestep, not enough points in T array, exiting at T=",ES9.2)
     print*, 'ERROR: small timestep, not enough points in T array, EXITING..'
     !IF (JTo4) write(49,*), 'S'
-    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, -2
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = -2
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2=T
     USTART = U
     GAMMASTART = GAMMA
+ !print *, 'rkdrive finish_data = ', finish_data
     RETURN 
    ENDIF
     
@@ -252,9 +320,11 @@ UNDERFLOW=0
 !This is for storing every NSTORE step
    IF (MOD(NSTP,NSTORE)==0) THEN
 
-    TT((NSTP/NSTORE)+1) = T	
+    !TT((NSTP/NSTORE)+1) = T	
+    TT = T	
     
     CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
+    !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
     CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
     
  
@@ -264,15 +334,30 @@ UNDERFLOW=0
 			      .AND.(SUM(DEDY).EQ.0.0_num).AND.(SUM(DEDZ).EQ.0.0_num) &
 !			      .AND.(SUM(DBDT).EQ.0.0_num).AND.(SUM(DEDT).EQ.0.0_num) &
     			      .AND.(SUM(Vf).EQ.0.0_num)) THEN	! not technically beyond bourdin range
-    print *, 'special box extent exit'
+    if ((print_number .eq. 1).and. (nproc .eq. 1)) print *, 'special box extent exit'
     !IF (JTo4) write(49,*), 'B'
-    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, -1
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = -1
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+ !print *, 'rkdrive finish_data = ', finish_data
     RETURN
    ENDIF
     
@@ -287,10 +372,10 @@ UNDERFLOW=0
     ENERGY(2)=MU*sqrt(dot(B,B))
     ENERGY(3)=sum((DRDT-VPAR*bb)**2)
 
-    DO I = 1,3
-      S((NSTP/NSTORE)+1,I) = R(I)
-      TOTAL((NSTP/NSTORE)+1,I) = ENERGY(I)
-    ENDDO
+    !DO I = 1,3
+    !  S((NSTP/NSTORE)+1,I) = R(I)
+    !  TOTAL((NSTP/NSTORE)+1,I) = ENERGY(I)
+    !ENDDO
 
     e1=efct*0.5_num*M*Vscl*Vpar*Vscl*Vpar
     e2=efct*M*Vscl*Vscl*MU*sqrt(dot(B,B))*gamma*gamma
@@ -311,7 +396,7 @@ UNDERFLOW=0
       Escl*E,						&   !8,9,10
       Bscl*B,						&   !11,12,13
       vscl*vtot_non,					&   !14 vtot_non
-      e2,						&   !15
+      H*tscl,						&   !15
       e3,						&   !16
       ek,						&   !17  
       sqrt(dot(Vf,Vf))*Vscl,						&   !18
@@ -326,10 +411,23 @@ UNDERFLOW=0
     ! EXIT CRITERIA:
     ! normal exit (if time is up):
     IF((T-T2)*(T2-T1) >= 0.) THEN         !Are we done?
-      if (print_number .eq. 1) PRINT *, 'time exit'
+      if ((print_number .eq. 1).and. (nproc .eq. 1))  PRINT *, 'time exit'
       !IF (JTo4) write(49,*), 'T'
-      IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
-      IF (JTo4) write(52,*), pn,1
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, 1 
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = 1
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
       !print*, Tscl*T
       DO I = 1,3
         RSTART(I)=R(I)
@@ -337,6 +435,7 @@ UNDERFLOW=0
     !  T2=T
       USTART = U
       GAMMASTART=GAMMA
+ !print *, 'rkdrive finish_data = ', finish_data
       RETURN                            !normal exit
     ENDIF
 
@@ -345,10 +444,24 @@ UNDERFLOW=0
    			    .AND.((R(1).GE.xe(2)).OR.(R(1).LE.xe(1)) &	! beyond simulation range
     			      .OR.(R(2).GE.ye(2)).OR.(R(2).LE.ye(1)) &
 			      .OR.(R(3).GE.ze(2)).OR.(R(3).LE.ze(1)))) THEN
-    print *, 'box extent exit'
+    if ((print_number .eq. 1).and. (nproc .eq. 1)) print *, 'box extent exit'
     !IF (JTo4) write(49,*), 'B'
-    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
-    IF (JTo4) write(52,*), pn,2
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, 2
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = 2
+        !print *, 'rkdrive finish_data = ', finish_data
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
@@ -357,26 +470,53 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     RETURN
    ENDIF
-   IF ((abs(H).lt.EPS).AND.(abs(HNEXT).lt.EPS).AND.(adjust_timestep.eq.1)) THEN ! both this and the next step are unbelievably small so quit before we get stuck!
-    print *, 'timestep shrink'
+   IF ((abs(H).lt.EPS).AND.(abs(HNEXT).lt.EPS).AND.(scattering .eq. 0)) THEN ! both this and the next step are unbelievably small so quit before we get stuck!
+    if ((print_number .eq. 1).and. (nproc .eq. 1)) print *, 'timestep shrink'
     !IF (JTo4) write(49,*), 'H'
-    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
-    IF (JTo4) write(52,*), pn,3
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, 3
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = 3
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+ !print *, 'rkdrive finish_data = ', finish_data
     RETURN
    ENDIF
    IF (UNDERFLOW.EQ.1) THEN	! JT fix to array overallocation in l.143
-    print*, 'ERROR: timestep UNDERFLOW in RKQS, EXITING..'
+    if ((print_number .eq. 1).and. (nproc .eq. 1)) print*, 'ERROR: timestep UNDERFLOW in RKQS, EXITING..'
     !IF (JTo4) write(49,*), 'U'
-    IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
-    IF (JTo4) write(52,*), pn,4
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, 4
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 0
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = 4
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
     IF (JTo3) THEN
-      WRITE(tempfile,"(A,'O',I8.8,'.ufl')"),dlocR,pn    !
+      WRITE(tempfile,"(A,'O',I8.8,'.ufl')"),dlocR,par_num    !
       open(55,file=tempfile,recl=1024,status='unknown')
     
       !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -404,7 +544,7 @@ UNDERFLOW=0
       Escl*E,						&   !8,9,10
       Bscl*B,						&   !11,12,13
       vscl*vtot_non,					&   !14 vtot_non
-      e2,							&   !15
+      H,							&   !15
       e3,							&   !16
       ek,							&   !17  
       gamma,						&   !18
@@ -422,6 +562,7 @@ UNDERFLOW=0
     T2=T
     USTART = U
     GAMMASTART = GAMMA
+ !print *, 'rkdrive finish_data = ', finish_data
     RETURN 
    ENDIF
    
@@ -431,13 +572,27 @@ UNDERFLOW=0
    ENDIF
    
   ENDDO                      !if we get to nstpmax...
- PRINT *, 'NSTP Loop ended'
+ if ((print_number .eq. 1).and. (nproc .eq. 1)) PRINT *, 'NSTP Loop ended'
  !IF (JTo4) 	write(49,*), 'N'
- IF (JTo4) write(49,*), R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta
- IF (JTo4) write(52,*), pn,5
+    IF (nproc .eq. 1) then
+        IF (JTo4) write(49,*), par_num, R*Lscl, VPAR*Lscl/Tscl, 2.0_num*MU*modB*Bscl*vscl*vscl,(gamma - 1.0)*m*c*c/qp,theta,rho*rhoscl,T*Tscl
+        IF (JTo4) write(52,*), par_num, 5
+    ELSE
+        finish_data%pos = R*Lscl
+        finish_data%par_vel = VPAR*Lscl/Tscl
+        finish_data%perp_vel = 2.0_num*MU*modB*Bscl*vscl*vscl
+        finish_data%kin_e = (gamma - 1.0)*m*c*c/qp
+        finish_data%p_angle = theta
+        finish_data%p_failed = 1
+        finish_data%rho = rho*rhoscl
+        finish_data%tfinal = T*Tscl
+        finish_data%p_exit = 5
+        call mpi_send(finish_data,1,mpi_finish_data2,0,1,mpi_comm_world,errcode)
+    ENDIF
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
  IF (writervs)	CLOSE(29)
+ !print *, 'rkdrive finish_data = ', finish_data
  RETURN
 
 END SUBROUTINE RKDRIVE

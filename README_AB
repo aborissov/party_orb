@@ -1,0 +1,1 @@
+This directory contains a briefly started work in progress version of the particle code being modified to interpolate drifts to particle positions, rather than fields (with drifts being calculated subsequently). The corrections due to this change will likely be negligible, however it would be nice to have a code that is more correct.

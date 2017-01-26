@@ -1,14 +1,15 @@
 MODULE M_rkqsR 
 
-   USE global
-   USE M_rkckR
-   USE M_rkcolR
-   IMPLICIT NONE
+  USE global
+  USE M_rkckR, ONLY: RKCK
+  IMPLICIT NONE
 
-   CONTAINS
+  PRIVATE
+  PUBLIC :: RKQS
 
-! SUBROUTINE RKQS (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,HTRY,MU,EPS,RSCAL,HDID,HNEXT,T1,T2)
- SUBROUTINE RKQS (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,HTRY,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,B,uflag,RERR)
+  CONTAINS
+
+ SUBROUTINE RKQS (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,HTRY,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, uflag)
 
 !##################################################################### 
  !this subroutine is the stepper and basically calls rkck to take one
@@ -21,54 +22,32 @@ MODULE M_rkqsR
  REAL(num), INTENT(INOUT), DIMENSION(3)	:: R, DRDT
  REAL(num), INTENT(INOUT)		:: U, DUDT, GAMMA, DGAMMADT
  REAL(num), INTENT(INOUT) 		:: T
- REAL(num), INTENT(IN)			:: EPS, HTRY, T1, T2
+ REAL(num), INTENT(IN)			:: EPS, HTRY,MU, T1, T2
  REAL(num), INTENT(IN), DIMENSION(5)	:: RSCAL
  REAL(num), INTENT(OUT)			:: HDID, HNEXT
  REAL(num), DIMENSION(5)		:: RERR 
  REAL(num), DIMENSION(3)		:: RTEMP
- REAL(num)				:: UTEMP,GAMMATEMP,gamma_old,mu,mu_old,nu,nu0,alpha,alpha_old,modB,vtherm
- REAL(num)				:: ERRMAX, H, HTEMP, TNEW, HNEW, H2
+ REAL(num)				:: UTEMP, GAMMATEMP
+ REAL(num)				:: ERRMAX, H, HTEMP, TNEW, HNEW
  REAL(num), PARAMETER			:: SAFETY=0.9_num, PGROW=-0.2_num
  REAL(num), PARAMETER			:: PSHRINK=-0.25_num, ERRCON=1.89e-4
  !JT adds these for debugging:
- REAL(num), DIMENSION(3)		:: E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf
- REAL(num), DIMENSION(3)		:: bb
- REAL(num), DIMENSION(3)		:: ENERGY
- REAL(num), DIMENSION(3)		:: UE
- REAL(num) 				:: efct,e1,e2,e3, vtot_non, ek, vpar,rho,temperature,eta
- REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar
- CHARACTER(LEN=35)			:: tempfile
+! REAL(num), DIMENSION(3)		:: E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf
+! REAL(num), DIMENSION(3)		:: bb
+! REAL(num), DIMENSION(3)		:: ENERGY
+! REAL(num), DIMENSION(3)		:: UE
+! REAL(num) 				:: efct,e1,e2,e3, vtot_non, ek, vpar
+! REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar
+! CHARACTER(LEN=35)			:: tempfile
  INTEGER, INTENT(OUT)			:: uflag
  uflag=0
-  
- !call FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
- call FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
- modB = sqrt(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))
- UE = CROSS(E,B)/(modB*modB)
  
  H=HTRY                   !Initial value for stepsize
- mu_old = mu
- gamma_old = gamma
- alpha = atan(sqrt(2.0_num*mu*modB)/U)
- if (alpha .lt. 0) alpha = pi + alpha
- !print *, 'RKQS alpha = ', alpha
- alpha_old = alpha
- !print *,'err = ', alpha - pi/4
-
- if ((scattering .eq. 0) .or. (eta .eq. 0.0_num)) then
  DO 
- !PRINT *,'rkqs_R = ',R
-  mu = mu_old
-  gamma = gamma_old
-  alpha = alpha_old
-
-
   CALL RKCK(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,RTEMP,UTEMP,GAMMATEMP, RERR,T1,T2)
   !print 669, R, DRDT
   ! 669 format ('R3=[',ES9.2,',',ES9.2,',',ES9.2,'], DRDT=[',ES9.2,',',ES9.2,',',ES9.2,']')
   ERRMAX=maxval(abs(RERR(:)/RSCAL(:)))/EPS 
-  !print *,'RKQS DUDT = ', DUDT
-  !WRITE(111,*) RERR,ERRMAX,H,T
   !WRITE(*,1001)"time:",Tscl*(T-t1)
   !WRITE(*,1004)"RERR:",RERR
   !WRITE(*,1004)"RSCAL:",RSCAL
@@ -77,7 +56,6 @@ MODULE M_rkqsR
   !WRITE(*,*)'****'
   !1004 FORMAT (a,5E13.4)
   !1001 FORMAT (a,E13.4)
-  !print *,NSTP,H,ERRMAX
   
   IF (ERRMAX <= 1.0) EXIT
    HTEMP=SAFETY*H*(ERRMAX**PSHRINK)
@@ -90,13 +68,12 @@ MODULE M_rkqsR
   TNEW=T+H
   IF (TNEW == T) THEN
    PRINT *, 'STEPSIZE UNDERFLOW IN RKQS'
-   PRINT *, 'Particle No.',pn           !particleno in old code
+   PRINT *, 'Particle No.',pn
    PRINT *, 'T & TNEW',T,TNEW
    uflag=1
    EXIT
   END IF
  END DO
-
  IF (ERRMAX > ERRCON) THEN
   HNEXT=SAFETY*H*(ERRMAX**PGROW)
  ELSE
@@ -106,25 +83,10 @@ MODULE M_rkqsR
  T=T+H
  R(:)=RTEMP(:) 
  U = UTEMP
- !print *, 'RKQS U = ', U
  GAMMA = GAMMATEMP
 
 !print 667, R
 !   667 format ('R=[',ES9.2,',',ES9.2,',',ES9.2,']')
- 
- else if ((scattering .eq. 1) .and. (eta .ne. 0.0_num)) then
-  H2 = H
-  !if (eta .ne. 0) H2 = H*1.0E-2_num
-  CALL RKCK(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H2,MU,RTEMP,UTEMP,GAMMATEMP, RERR,T1,T2)
-  T = T+H2
-  HDID = H2
-  HNEXT = H
-  R(:)=RTEMP(:) 
-  U = UTEMP
-  GAMMA = GAMMATEMP
-  !print *, 'rkqs H = ', H2
-
- end if
 
  END SUBROUTINE RKQS
 

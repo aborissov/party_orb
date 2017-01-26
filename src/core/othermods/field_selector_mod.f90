@@ -15,6 +15,7 @@ MODULE M_fields
 
   CONTAINS 
 !---------------------------------------------------------------------------!
+!SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
 SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
 !selects which fields module we actually use.
 

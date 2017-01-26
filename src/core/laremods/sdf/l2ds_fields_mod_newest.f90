@@ -278,7 +278,8 @@ IF (.NOT. restart_flag) THEN
           CALL check_dims(dims)
           CALL sdf_read_plain_variable(sdf_handle, data, &
               cell_distribution, cell_subarray)
-          rho(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
+          rho(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
+          !rho(1:nx,1:ny,1,frame) = stagger_centre(data(1:nx-1,1:ny-1))
           !OPEN(37, file=trim(adjustl(dloc))//'rho2idl.dat', access = 'stream')
           !WRITE(37) rho(1:nx,1:ny,1,1:nframes)
           !print *, 'l2ds max rho = ',maxval(rho)
@@ -291,7 +292,7 @@ IF (.NOT. restart_flag) THEN
           CALL check_dims(dims)
           CALL sdf_read_plain_variable(sdf_handle, data, &
               cell_distribution, cell_subarray)
-          temperature(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
+          temperature(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
           !OPEN(38, file=trim(adjustl(dloc))//'temp2idl.dat', access = 'stream')
           !WRITE(38) temperature(1:nx,1:ny,1,1:nframes)
           !print *, 'l2ds max temperature = ',maxval(temperature)
@@ -304,7 +305,7 @@ IF (.NOT. restart_flag) THEN
           CALL check_dims(dims)
           CALL sdf_read_plain_variable(sdf_handle, data, &
               cell_distribution, cell_subarray)
-          eta(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
+          eta(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
           !OPEN(38, file=trim(adjustl(dloc))//'eta2idl.dat', access = 'stream')
           !WRITE(38) eta(1:nx,1:ny,1,1:nframes)
           !print *, 'l2ds max eta = ',maxval(eta), ' min eta = ', minval(eta)

@@ -12,23 +12,25 @@ USE gammadist_mod, ONLY: random_gamma
 
 IMPLICIT NONE
 
- INTEGER :: NOK, NBAD, particle_tstart, particle_tend
- INTEGER :: NKEEP,time_no
+ INTEGER :: NOK, NBAD, particle_tstart, particle_tend,j
+ INTEGER :: NKEEP,time_no,size_r
  INTEGER :: pos_no_x,pos_no_y,pos_no_z,pos_no_alpha,pos_no_ekin
  INTEGER :: pnmax
  INTEGER, DIMENSION(3) :: pos_no_r
+ integer, parameter    :: print_data = 10
  
  REAL(num), DIMENSION(3) :: gds, lbox
  REAL(num), DIMENSION(3) :: RSTART,RSTARTKEEP!, R1,R2
- REAL(num), DIMENSION(NKEEPMAX) :: TT 
- REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
+ !REAL(num), DIMENSION(NKEEPMAX) :: TT 
+ !REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
+ REAL(num)                       :: TT 
+ REAL(num), DIMENSION(3)         :: S, TOTAL
  REAL(num), DIMENSION(3) :: Et,Bt,DBDXt,DBDYt,DBDZt,DBDTt,DEDXt,DEDYt,DEDZt,DEDTt,Vft,ue
  REAL(num)               :: rrr1,ttt1,etaa1
  CHARACTER(LEN=35)	 :: finfile
+ logical                :: message_flag
+
  
- !welcome screen
- WRITE(*,*) "====RELATIVISTIC particle code====="
- WRITE(*,*) "using ", FMOD, " fields module."
  bourdinflag=.FALSE.
  l3dflag=.FALSE.
  l2dflag=.FALSE.
@@ -113,7 +115,7 @@ IMPLICIT NONE
     WRITE(*,*) '(particle grid out of bounds)'
     STOP
    ELSE 
-    WRITE(*,*) 'fine!'
+    if (rank .eq. 0) WRITE(*,*) 'fine!'
    ENDIF
    
   DO i=1,3
@@ -162,7 +164,7 @@ IMPLICIT NONE
    pos_no_alpha = mod(pn/EkinSteps, AlphaSteps)
    pos_no_ekin = mod(pn,EkinSteps)
   ELSE
-   PRINT*, '--starting particle grid from beginning--'   
+   if (rank .eq. 0) PRINT*, '--starting particle grid from beginning--'   
    pn=0
    pos_no_x=0
    pos_no_y=0
@@ -180,10 +182,39 @@ IMPLICIT NONE
   !print *, 'main pos_no_x = ', pos_no_x, 'RSTEPS(1)', RSTEPS(1)
   !print *, 'main pos_no_y = ', pos_no_y, 'RSTEPS(2)', RSTEPS(2)
   !print *, 'main pos_no_z = ', pos_no_z, 'RSTEPS(3)', RSTEPS(3)
-  print *, 'main pn', pn, ' pnmax ', pnmax
+  !print *, 'main pn', pn, ' pnmax ', pnmax
   maxwellEfirst=.TRUE.
   H1=H1/Tscl
-  DO WHILE (pos_no_x .LE. RSTEPS(1)-1)
+  dt_min = H1
+
+
+  !if (rank .eq. 1) then
+  !      finish_data%pos = (/1.0_num,2.0_num,3.0_num/)
+  !      finish_data%par_vel = 2.5_num
+  !      finish_data%perp_vel = 3.2_num
+  !      finish_data%kin_e = 45.2E22_num
+  !      finish_data%p_angle = 21.0_num
+  !      finish_data%p_failed = 1
+  !      finish_data%p_exit = -1
+  !      finish_data%par_num = 50
+  !      print *, 'finish data = ', finish_data
+  !      call mpi_send(finish_data,1,mpi_finish_data2,0,0,mpi_comm_world,errcode)
+  !else if (rank .eq. 0) then
+  !      print *, 'recv data1 = ', recv_data
+  !      call mpi_recv(recv_data,1,mpi_finish_data2,1,0,mpi_comm_world,errcode)
+  !      print *, 'recv data2 = ', recv_data
+  !      stop
+  !endif
+ 
+ !welcome screen
+ if (rank .eq. 0) then
+   WRITE(*,*) "====RELATIVISTIC particle code====="
+   WRITE(*,*) "using ", FMOD, " fields module."
+ endif
+
+  
+  if (rank .eq. 0) then
+ DO WHILE (pos_no_x .LE. RSTEPS(1)-1)
    DO WHILE (pos_no_y .LE. RSTEPS(2)-1)
     DO WHILE (pos_no_z .LE. RSTEPS(3)-1)
      DO WHILE (pos_no_alpha .LE. AlphaSteps-1)
@@ -222,7 +253,7 @@ IMPLICIT NONE
        ENDIF
        alpha = alpha*Pi/180.0d0				! RADEG: added by S.Oskoui
        
-       if (print_number .eq. 1) then
+       if ((print_number .eq. 1) .and. (nproc .eq. 1)) then
        IF (nparticles.gt.1000) THEN 
         print 1000, pn,nparticles, RSTART,alpha*57.3
         1000 format ("particle no. ",i4,"/",i4, ", R=(",ES9.2,",",ES9.2,",",ES9.2,"), alpha = ",ES9.2,",")
@@ -252,7 +283,7 @@ IMPLICIT NONE
         endif
         !print *, 'main Ekin = ', Ekin, EKinLow,(EKinHigh-EKinLow),(pos_no_ekin+1),(EkinSteps*1.0d0)
        ENDIF
-       if (print_number .eq. 1) print*, 'kinetic energy (in eV) = ', EKIN
+       if ((print_number .eq. 1) .and. (nproc .eq. 1)) print*, 'kinetic energy (in eV) = ', EKIN
        !alpha = pi/(no of steps+1) if fullangle is 1 (ie, steps from >=0 to >Pi (but not including Pi))
        !alpha = pi/2/(no of steps) if fullangle is 0 (steps from 0 to Pi/2 inclusive)
   
@@ -273,15 +304,52 @@ IMPLICIT NONE
        
        !Call the rk sophisticated driver, which then works out the arrays for the
        !time steps and positions.
-       CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+       if (nproc .eq. 1) then
+          CALL RKDRIVE(pn,RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+          NKEEP = (NOK +NBAD)/NSTORE
+       else
+             !print *, 'r_main recv = ', recv_data
+          call mpi_recv(recv_data,1,mpi_finish_data2,mpi_any_source,mpi_any_tag,mpi_comm_world,status,errcode)
+             !print *, 'r_main recv = ', recv_data
+             !print *, 'r_main received tag', status(mpi_tag)
+          start_data%R_s = RSTART
+          start_data%u_s = USTART
+          start_data%gamma_s = GAMMASTART
+          start_data%mu_s = MU
+          start_data%t1_s = T1
+          start_data%t2_s = T2
+          start_data%eps_s = EPS
+          start_data%h1_s = H1
+          start_data%nok_s = NOK
+          start_data%nbad_s = NBAD
+          start_data%tt_s = TT
+          start_data%s_s = S
+          start_data%total_s = TOTAL
+          start_data%par_num = pn
+          sender = status(mpi_source)
+          !print *, 'rank ', rank ,' particle ', pn, ' send_data = ', start_data
+          call mpi_send(start_data,1,mpi_start_data,sender,0,mpi_comm_world,errcode) ! tag 0 means there are still particles left to run
+          !print *, 'particle ', pn, ' running on rank', sender
+
+          ! if not on first step then write the data received from the worker
+          ! (if first step tag should be 0)
+          if (status(mpi_tag) .eq. 1) then
+             !print *, 'writing particle', recv_data%par_num, ' data'
+             IF (JTo4) write(49,*),recv_data%par_num,recv_data%pos,recv_data%par_vel,recv_data%perp_vel,recv_data%kin_e,recv_data%p_angle,recv_data%rho,recv_data%tfinal
+             IF (JTo4) write(50,*),recv_data%par_num,recv_data%s_pos,recv_data%s_par_vel,recv_data%perp_vel,recv_data%s_kin_e,recv_data%s_p_angle,recv_data%s_rho
+             IF ((JTo4) .and. (recv_data%p_exit .eq. 5)) write(51,*),recv_data%par_num,recv_data%s_pos,0,0   ! note that when running on multiple processes the failed file doesn't get any parallel velocity or gamma info written
+             IF (JTo4) write(52,*),recv_data%par_num,recv_data%p_exit
+             NKEEP = (NOK +NBAD)/NSTORE
+             if (modulo(recv_data%par_num,print_data) .eq. 0) print *, 'particle ', recv_data%par_num, ' running on rank ', status(mpi_source), ' written to output files'
+          endif
+       endif
         
-       NKEEP = (NOK +NBAD)/NSTORE
 
       ! CALL WRITE_ENDTIME(RSTART,T2,MU,VPARSTART)
 
-        if (print_number .eq. 1) then
-        particle_tend = time8()
-        if (particle_tend .ne. particle_tstart) print *,'particle ',pn,' time elapsed = ',particle_tend - particle_tstart
+        if ((print_number .eq. 1) .and. (nproc .eq. 1)) then
+          particle_tend = time8()
+          if (particle_tend .ne. particle_tstart) print *,'particle ',pn,' time elapsed = ',particle_tend - particle_tstart
         endif
       
        pos_no_ekin=pos_no_ekin+1
@@ -298,17 +366,55 @@ IMPLICIT NONE
    pos_no_x=pos_no_x+1
    pos_no_y=0
   END DO
+
+  if (nproc .ne. 1) then
+     do j = 1,nproc-1
+        !call mpi_probe(j,mpi_any_tag,mpi_comm_world,status,errcode)
+        call mpi_recv(recv_data,1,mpi_finish_data2,mpi_any_source,mpi_any_tag,mpi_comm_world,status,errcode)
+        if ((status(mpi_tag) .eq. 1)) then
+             !print *, 'writing particle', recv_data%par_num, ' data'
+             IF (JTo4) write(49,*),recv_data%par_num,recv_data%pos,recv_data%par_vel,recv_data%perp_vel,recv_data%kin_e,recv_data%p_angle,recv_data%rho,recv_data%tfinal
+             IF (JTo4) write(50,*),recv_data%par_num,recv_data%s_pos,recv_data%s_par_vel,recv_data%perp_vel,recv_data%s_kin_e,recv_data%s_p_angle,recv_data%s_rho
+             IF ((JTo4) .and. (recv_data%p_exit .eq. 5)) write(51,*),recv_data%par_num,recv_data%s_pos,0,0   ! note that when running on multiple processes the failed file doesn't get any parallel velocity or gamma info written
+             IF (JTo4) write(52,*),recv_data%par_num,recv_data%p_exit
+             NKEEP = (NOK +NBAD)/NSTORE
+             if (modulo(recv_data%par_num,print_data) .eq. 0) print *, 'particle ', recv_data%par_num, ' running on rank ', status(mpi_source), ' written to output files'
+          endif
+     enddo
+  endif
+  if (nproc .ne. 1) then
+     do j = 1,nproc-1
+        call mpi_send(start_data,1,mpi_start_data,j,1,mpi_comm_world,errcode) ! tag 1 means time to stop, don't do anything with data
+     enddo
+  endif
+  
   IF (JTo4) CLOSE(49)
   IF (JTo4) CLOSE(50)
   IF (JTo4) CLOSE(51)
   IF (JTo4) CLOSE(52)
+
+  else
+     call mpi_send(finish_data,1,mpi_finish_data2,0,0,mpi_comm_world,errcode) ! don't write this data (tag 0)
+     do
+        call mpi_recv(start_data,1,mpi_start_data,0,mpi_any_tag,mpi_comm_world,status,errcode)
+        if (status(mpi_tag) .ne. 1) then
+          CALL RKDRIVE(start_data%par_num,start_data%R_s,start_data%u_s,start_data%gamma_s,start_data%mu_s,&
+            start_data%t1_s,start_data%t2_s,start_data%eps_s,start_data%h1_s,start_data%nok_s,&
+            start_data%nbad_s,start_data%tt_s,start_data%s_s,start_data%total_s)
+            !if (rank .eq. 6) call sleep(2)
+        else
+          exit
+        endif
+     enddo
+  endif
+
  !CALL MAKEFILE(time_no)
   
  !END DO
  
- IF ((str_cmp(FMOD, "LARE")).OR.(str_cmp(FMOD, "lare"))) THEN	!forget arrays at end
+ IF ((str_cmp(FMOD, "L3D")).OR.(str_cmp(FMOD, "l3d")).OR.(str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN	!forget arrays at end
   CALL mpi_close                     ! mpi_routines.f90
-  CALL MPI_FINALIZE(errcode)
+  CALL MPI_FINALIZE(errcode)  
  ENDIF
 
  IF ((str_cmp(FMOD, "BOUR")).OR.(str_cmp(FMOD, "bour"))) THEN

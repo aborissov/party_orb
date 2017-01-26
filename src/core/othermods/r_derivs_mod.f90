@@ -32,6 +32,7 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
  REAL(num)				:: fac, facsq, ofac, ofacsq
  !LOGICAL, INTENT(OUT)			:: ERR 
 
+ !CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
  MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
  
@@ -115,7 +116,6 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
   d3=U*CROSS(B,OTHERS)*omodB*omodB*ofacsq
   d4=gamma*CROSS(B,DVEDT)*omodB*omodB*ofacsq
   d5=Epar*U/gamma*vscl*vscl/c/c*CROSS(B,VE)*omodB*omodB*ofacsq
-  
   
    DRperpDT= VE + oneuponOmscl/tscl*(d1+d2+d3+d4)+d5									! THRELFALL ET AL 2015
    !print *, 'derivs ve = ', ve*Vscl, ' drperpdt = ', DRperpDT*Vscl

@@ -16,11 +16,15 @@ MODULE global
  CHARACTER(Len = 40)		:: sloc='lare2d_runs/Data/'
 
 !##########################################################################
+
+ LOGICAL        :: init ! check to see if mpi is initialised
+
 ! now some stuff required to plug in lare data 
  
  INTEGER, PARAMETER		:: num = KIND(1.0d0), dbl = KIND(1.D0)
  INTEGER, PARAMETER		:: NKEEPMAX = 1000001		! max no of dumps
  INTEGER(KIND=8), PARAMETER	:: NSTPMAX  = 5E9	! max no of steps
+ !INTEGER(KIND=8), PARAMETER	:: NSTPMAX  = 10	! max no of steps
  INTEGER(KIND=8)		:: NSTP				! step counter
  INTEGER, PARAMETER		:: NSTORE =50, MAXTIME=200	! how often does the RK solver output data, every NSTORE steps?
  INTEGER 			:: ix, iy, iz,it, iix, iiy, iiz,iit, i
@@ -37,13 +41,14 @@ MODULE global
  REAL(num) 			:: time, tempa, tempe
  REAL(num) 			:: Ekin,Alpha,AlphaMax,AlphaMin,dalpha, Ekinlow,Ekinhigh,T1Keep,T2Keep
  REAL(num) 			:: T1,T2, H1,EPS, USTART, mu, USTARTKEEP, GAMMASTART,GAMMASTARTKEEP, VPARSTART
+ real(num)                      :: dt_min
  INTEGER, DIMENSION(3) 		:: RSteps 
  INTEGER			:: pn, nparticles
  INTEGER			:: p_restart_no, p_stop_no
  INTEGER 			:: EKinSteps, AlphaSteps
 
- INTEGER                        :: adjust_timestep = 0                          ! AB 0 for fixed timestep, 1 for adjustable
- INTEGER                        :: collisions = 1                               ! AB 0 for no collisions, 1 for collisions
+ INTEGER                        :: scattering = 1                               ! AB 0 for no scattering, 1 for scattering
+ INTEGER                        :: collisions                                   ! AB flag to determine if scattering is turned on in rkck routine
  INTEGER                        :: print_number = 1                             ! AB 0 for no printing particle number, 1 for printing particle number
  LOGICAL			:: p_restart=.FALSE., p_stop=.FALSE. 		! are we starting or stopping midway through the arrays?
  LOGICAL			:: RANDOMISE_R, RANDOMISE_A, RANDOMISE_E	! switches for randomising position, angle and energy (TWO WORK CURRENTLY!)
@@ -68,7 +73,13 @@ REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
 ! NORMALISING SCALES 
  REAL(num), PARAMETER	:: Lscl = 1.0E1_num     		! 10 Mega meters (1e7)
  REAL(num), PARAMETER	:: Bscl = 0.03_num		! 100 Gauss 	 (0.01)
+ !REAL(num), PARAMETER	:: Bscl = 0.001_num		! 100 Gauss 	 (0.01)
+ !REAL(num), PARAMETER	:: Bscl = 0.005_num		! 100 Gauss 	 (0.01)
+ !REAL(num), PARAMETER	:: Bscl = 1.0_num 		! 100 Gauss 	 (0.01)
+ !REAL(num), PARAMETER	:: Escl = 1e3			! 10V/cm	 (1e3)
+ !REAL(num), PARAMETER	:: Tscl = Lscl*Bscl/Escl        ! 100s	
  REAL(num), PARAMETER	:: Tscl = 4.82E-7_num		! 100s	
+ !REAL(num), PARAMETER	:: Tscl = 5.0E-5_num		! 100s	
  REAL(num), PARAMETER	:: Escl = Lscl*Bscl/Tscl	! 10V/cm	 (1e3)
  REAL(num), PARAMETER	:: Vscl = Lscl/Tscl		! 10^7/10^2=10^5m/s=100km/s
  REAL(num), PARAMETER	:: Ekscl = M*Vscl*Vscl		! 10^10*9e-31=9e-21joules
@@ -117,7 +128,7 @@ REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
 
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/0.1_num,99.9_num/),ye=(/-0.1_num,99.9_num/),ze=(/-19.5_num,79.5_num/)
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-0.9_num,0.9_num/),ye=(/-0.9_num,0.9_num/),ze=(/-100.00_num,100.0_num/)
- REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-8.0_num,8.0_num/),ye=(/-6.1_num,6.1_num/),ze=(/-100.00_num,100.0_num/) ! working collision lare 2d grid
+ REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-2.0_num,2.0_num/),ye=(/-2.0_num,2.0_num/),ze=(/-100.00_num,100.0_num/) ! working collision lare 2d grid
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-80.0_num,80.0_num/),ye=(/-60.1_num,60.1_num/),ze=(/-100.00_num,100.0_num/) ! for testing
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=25.0_num
  !REAL(num), PARAMETER			:: eta=0.005_num, jcrit=0.9_num, rwidth=0.05_num
@@ -128,11 +139,16 @@ REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
  CHARACTER(Len = 11) 		:: dlocN=dloc//'DataN/',dlocR=dloc//'DataR/'
 
  INTEGER, PARAMETER				:: mpireal = MPI_DOUBLE_PRECISION
+ !INTEGER, PARAMETER                             :: nx_global=375, ny_global=375, nz_global=1            ! James's lare2d cfd config
  !INTEGER, PARAMETER				:: nx_global=64, ny_global=64, nz_global=64		! julie's lare3d cfd config
  !INTEGER, PARAMETER				:: nx_global=120, ny_global=120, nz_global=480		! alan's lare3d sdf config
  !INTEGER, PARAMETER				:: nx_global=128, ny_global=128, nz_global=1		! James's lare2d cfd config
  !INTEGER, PARAMETER                             :: nx_global=256, ny_global=256, nz_global=1            ! James's lare2d cfd config
- INTEGER, PARAMETER                             :: nx_global=512, ny_global=512, nz_global=1            ! James's lare2d cfd config
+ !INTEGER, PARAMETER                             :: nx_global=512, ny_global=512, nz_global=1            ! James's lare2d cfd config
+ !INTEGER, PARAMETER                             :: nx_global=1024, ny_global=1024, nz_global=1            ! James's lare2d cfd config
+ !INTEGER, PARAMETER                             :: nx_global=2048, ny_global=2048, nz_global=1            ! James's lare2d cfd config
+ !INTEGER, PARAMETER                             :: nx_global=4096, ny_global=4096, nz_global=1            ! James's lare2d cfd config
+ INTEGER, PARAMETER                             :: nx_global=2000, ny_global=4000, nz_global=1            ! James's lare2d cfd config
  INTEGER, PARAMETER 				:: data_dir_max_length = 64
  INTEGER 					:: nx, ny, nz	
  INTEGER, DIMENSION(:), ALLOCATABLE		:: dims
@@ -157,7 +173,7 @@ REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
   
   ! MPI data
  INTEGER :: rank, proc_x_min, proc_x_max, proc_y_min, proc_y_max, proc_z_min, proc_z_max
- INTEGER :: errcode, comm, tag, nproc, nprocx, nprocy, nprocz
+ INTEGER :: errcode, comm, tag, nproc, nprocx, nprocy, nprocz, sender
  INTEGER :: status(MPI_STATUS_SIZE)
 
   ! file handling
@@ -199,6 +215,21 @@ REAL (num), PARAMETER  	:: one = 1.0_num, zero = 0.0_num
   
   INTEGER, DIMENSION(:), ALLOCATABLE	:: global_dims, local_dims
   REAL(num), DIMENSION(:), ALLOCATABLE :: extents, extent, stagger
+
+  TYPE finish_data_type
+        real(num), dimension(3) :: pos,s_pos
+        real(num)               :: par_vel,perp_vel,kin_e,p_angle,rho,s_par_vel,s_perp_vel,s_kin_e,s_p_angle,s_rho,tfinal
+        integer                 :: par_num,p_failed,p_exit
+  END TYPE finish_data_type
+  TYPE start_data_type
+        real(num), dimension(3)          :: R_s,s_s,total_s
+        real(num)                        :: u_s,gamma_s,mu_s,t1_s,t2_s,eps_s,h1_s,tt_s
+        integer                          :: nok_s,nbad_s,par_num
+  END TYPE start_data_type
+
+  TYPE(finish_data_type)        :: finish_data,recv_data
+  TYPE(start_data_type)         :: start_data
+  INTEGER                       :: mpi_finish_data,mpi_finish_data2,mpi_start_data
  
 !----------------------------------------------------
  contains

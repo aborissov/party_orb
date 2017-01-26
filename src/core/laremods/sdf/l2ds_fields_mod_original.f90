@@ -46,7 +46,7 @@ CONTAINS
 
     CALL sdf_read_header(sdf_handle, step, time, code_name, code_io_version, &
     string_len, restart_flag)
-        
+
 IF (.NOT. restart_flag) THEN
       IF (rank == 0) THEN
         PRINT*, '*** ERROR ***'
@@ -108,8 +108,6 @@ IF (.NOT. restart_flag) THEN
         !print*, 'GRID FOUND'
         
 	CALL sdf_read_plain_mesh_info(sdf_handle, geometry, dims, extents)
-        !print *,'l2ds_fields geometry = ', geometry, ' dims = ', dims, ' extents = ', extents
-        !print *, 'c_geometry_cartesian = ', c_geometry_cartesian, ' global_dims = ', global_dims
 
         IF (geometry /= c_geometry_cartesian &
             .OR. ALL(dims(1:c_ndims) /= global_dims(1:c_ndims))) CYCLE
@@ -122,7 +120,6 @@ IF (.NOT. restart_flag) THEN
 
 
 	!print*, x_min, x_max, y_min, y_max
-        !print *,'got here in subroutine L2DSGRID'
 
         length_x = x_max - x_min
         length_y = y_max - y_min
@@ -146,7 +143,6 @@ IF (.NOT. restart_flag) THEN
     END DO
 
 
-
     CALL sdf_close(sdf_handle)
     CALL MPI_BARRIER(comm, errcode)
   ! PRINT*, 'SUCCESSFULLY OPENED AND CLOSED SDF FILE!!'
@@ -165,7 +161,7 @@ IF (.NOT. restart_flag) THEN
     INTEGER				:: mpireal = MPI_DOUBLE_PRECISION
     INTEGER				:: sdf_num = c_datatype_real8
     INTEGER, DIMENSION(4) 		:: dims
-    REAL(num), DIMENSION(:, :), ALLOCATABLE :: data,newdata
+    REAL(num), DIMENSION(:, :), ALLOCATABLE :: data
     CHARACTER(LEN=c_id_length) 		:: code_name, block_id, mesh_id, str1
     
 
@@ -272,44 +268,10 @@ IF (.NOT. restart_flag) THEN
         CALL sdf_read_plain_variable_info(sdf_handle, dims, str1, mesh_id)
         IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
         IF (str_cmp(block_id, 'Rho')) THEN
-        !print *,'L2DSINIFIELDS size(rho) = ', shape(rho)
-          ALLOCATE(data(-1:nx+2, -1:ny+2))
-	  !CYCLE 
-          CALL check_dims(dims)
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              cell_distribution, cell_subarray)
-          rho(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
-          !OPEN(37, file=trim(adjustl(dloc))//'rho2idl.dat', access = 'stream')
-          !WRITE(37) rho(1:nx,1:ny,1,1:nframes)
-          !print *, 'l2ds max rho = ',maxval(rho)
-          !CLOSE(37)
-	  DEALLOCATE(data)
-        ELSE IF (str_cmp(block_id, 'Temperature')) THEN
-        !print *,'L2DSINIFIELDS size(temperature) = ', shape(temperature)
-          ALLOCATE(data(-1:nx+2, -1:ny+2))
-	  !CYCLE 
-          CALL check_dims(dims)
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              cell_distribution, cell_subarray)
-          temperature(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
-          !OPEN(38, file=trim(adjustl(dloc))//'temp2idl.dat', access = 'stream')
-          !WRITE(38) temperature(1:nx,1:ny,1,1:nframes)
-          !print *, 'l2ds max temperature = ',maxval(temperature)
-          !CLOSE(38)
-	  DEALLOCATE(data)
-        ELSE IF (str_cmp(block_id, 'eta')) THEN
-        !print *,'L2DSINIFIELDS size(eta) = ', shape(eta)
-          ALLOCATE(data(-1:nx+2, -1:ny+2))
-	  !CYCLE 
-          CALL check_dims(dims)
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              cell_distribution, cell_subarray)
-          eta(1:nx,1:ny,1,frame)=stagger_bz(data(1:nx,1:ny))
-          !OPEN(38, file=trim(adjustl(dloc))//'eta2idl.dat', access = 'stream')
-          !WRITE(38) eta(1:nx,1:ny,1,1:nframes)
-          !print *, 'l2ds max eta = ',maxval(eta), ' min eta = ', minval(eta)
-          !CLOSE(38)
-	  DEALLOCATE(data)
+	   CYCLE 
+!          CALL check_dims(dims)
+!          CALL sdf_read_plain_variable(sdf_handle, rho, &
+!              cell_distribution, cell_subarray)
         ELSE IF (str_cmp(block_id, 'Energy')) THEN
  	   CYCLE
  !         CALL check_dims(dims)
@@ -321,7 +283,6 @@ IF (.NOT. restart_flag) THEN
           CALL check_dims(dims)
 	!  print*, 'dims:', dims
 	!  print*, nx
-          if (allocated(data)) deallocate(data) ! WHY IS THIS NECESSARY?
           ALLOCATE(data(-2:nx+2, -2:ny+2))
           CALL sdf_read_plain_variable(sdf_handle, data, &
               node_distribution, node_subarray)
@@ -345,39 +306,6 @@ IF (.NOT. restart_flag) THEN
               node_distribution, node_subarray)
           vz(1:nx,1:ny,1,frame)=data(1:nx, 1:ny)
 	  DEALLOCATE(data)
-        ELSE IF (str_cmp(block_id, 'Jx')) THEN
-          dims = dims - 1
-!	  print*, 'variable:', block_id
-          CALL check_dims(dims)
-	!  print*, 'dims:', dims
-	!  print*, nx
-          ALLOCATE(data(-2:nx+2, -2:ny+2))
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              node_distribution, node_subarray)
-          jx(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
-          DEALLOCATE(data)
-        ELSE IF (str_cmp(block_id, 'Jy')) THEN
-          dims = dims - 1
-!	  print*, 'variable:', block_id
-          CALL check_dims(dims)
-	!  print*, 'dims:', dims
-	!  print*, nx
-          ALLOCATE(data(-2:nx+2, -2:ny+2))
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              node_distribution, node_subarray)
-          jy(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
-          DEALLOCATE(data)
-        ELSE IF (str_cmp(block_id, 'Jz')) THEN
-          dims = dims - 1
-!	  print*, 'variable:', block_id
-          CALL check_dims(dims)
-	!  print*, 'dims:', dims
-	!  print*, nx
-          ALLOCATE(data(-2:nx+2, -2:ny+2))
-          CALL sdf_read_plain_variable(sdf_handle, data, &
-              node_distribution, node_subarray)
-          jz(1:nx,1:ny,1,frame)=data(1:nx,1:ny)
-          DEALLOCATE(data)
         ELSE IF (str_cmp(block_id, 'Bx')) THEN
  !  	  print*, 'variable:', block_id
           dims(1) = dims(1) - 1
@@ -389,7 +317,7 @@ IF (.NOT. restart_flag) THEN
 	  DO ii=1,nx
 	   bx(ii,1:ny,1,frame)=stagger_bx_2d(data(ii,1:ny))
 	  ENDDO
-          DEALLOCATE(data)
+	  DEALLOCATE(data)
         ELSE IF (str_cmp(block_id, 'By')) THEN
   !	  print*, 'variable:', block_id
           IF (c_ndims >= 2) dims(2) = dims(2) - 1
@@ -413,9 +341,6 @@ IF (.NOT. restart_flag) THEN
         END IF
       END SELECT
     END DO
-
-    !print *,'L2DSINIFIELDS size(rho) = ', shape(rho)
-    !print *,'L2DSINIFIELDS size(bx) = ', shape(bx)
    
 
     CALL sdf_close(sdf_handle)

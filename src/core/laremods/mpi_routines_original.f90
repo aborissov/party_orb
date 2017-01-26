@@ -239,7 +239,7 @@ CONTAINS
   ENDIF
   
   ! if the first file exists, compare lare and particle grids - particle grid must be shorter than lare grid (for obvious reasons). 
-  if (rank .eq. 0) WRITE(*,101)  'checking grid extent: '
+  WRITE(*,101)  'checking grid extent: '
   IF (.not. ((maxval(myx).ge.xe(2)).OR.(minval(myx).le.xe(1)))) THEN
    WRITE(*,*) '..particle start positions beyond specified lare grid range in x'
    gflag=.true.
@@ -256,10 +256,10 @@ CONTAINS
    WRITE(*,*) 'terminating: particles cannot begin beyond bounds set by Lare fields.'
    STOP
   ELSE 
-   if (rank .eq. 0) WRITE(*,101,advance='no') 'fine!'
+   WRITE(*,101,advance='no') 'fine!'
   ENDIF 
   
-   if (rank .eq. 0) WRITE(*,*)  '..now loading in Lare variables..'
+   WRITE(*,*)  '..now loading in Lare variables..'
    DO WHILE (frame.LE.(nframes))
     IF (ce) THEN
       INQUIRE(file=TRIM(cfdloc),exist=ce2)
@@ -413,8 +413,7 @@ CONTAINS
    cell_ny_maxs(icoord) = nyp * ny0 + (icoord - nyp + 1) * (ny0 + 1)
   END DO  
 
-  cx = 0
-  cy = 0
+  print*, cx
 
   n_global_min(1) = cell_nx_mins(cx) - 1
   n_global_max(1) = cell_nx_maxs(cx)
@@ -455,12 +454,6 @@ CONTAINS
    
   !ALLOCATE(rho(0:nx,0:ny,0:nz))
   !ALLOCATE(energy(0:nx,0:ny,0:nz)) 
-  ALLOCATE(rho(1:nx,1:ny,1:1,1:nframes))
-  ALLOCATE(temperature(1:nx,1:ny,1:1,1:nframes))
-  ALLOCATE(eta(1:nx,1:ny,1:1,1:nframes))
-  ALLOCATE(jx(1:nx,1:ny,1:1,1:nframes))
-  ALLOCATE(jy(1:nx,1:ny,1:1,1:nframes))
-  ALLOCATE(jz(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vx(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vy(1:nx,1:ny,1:1,1:nframes))
   ALLOCATE(vz(1:nx,1:ny,1:1,1:nframes))
@@ -488,11 +481,11 @@ CONTAINS
 
   IF ((ce).NEQV.(se)) THEN	! do flags differ? (if so, one is ON!)
    IF (ce) THEN
-    if (rank .eq. 0) print*, 'found old lare2d file (cfd)'
+    print*, 'found old lare2d file (cfd)'
     CALL L2DCGRID()		! lare grid reads in the grid from the output file
    END IF
    IF (se) THEN
-    if (rank .eq. 0) print*, 'found new lare2d file (sdf)'
+    print*, 'found new lare2d file (sdf)'
     ALLOCATE(local_dims(c_ndims))
     local_dims = (/nx, ny/)
     CALL mpi_create_types_2d
@@ -509,25 +502,23 @@ CONTAINS
    ENDIF
   ENDIF
    
-  if (rank .eq. 0) WRITE(*,101)  'checking grid extent: ' 
+  WRITE(*,101)  'checking grid extent: ' 
    IF (.not. ((maxval(myx).ge.xe(2)).OR.(minval(myx).le.xe(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in x'
-    print *, 'mpi routines particle positions xe = ', xe, ' minmax(myx) = ', minval(myx), maxval(myx)
     gflag=.true.
    ENDIF
    IF (.not. ((maxval(myy).ge.ye(2)).OR.(minval(myy).le.ye(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in y'
-    print *, 'mpi routines particle positions ye = ', ye, ' minmay(myy) = ', minval(myy), maxval(myy)
     gflag=.true.
    ENDIF
    IF (gflag) THEN
     WRITE(*,*) 'terminating: particles cannot begin beyond bounds set by Lare fields.'
     STOP
    ELSE 
-    if (rank .eq. 0) WRITE(*,101,advance='no') 'fine!'
+    WRITE(*,101,advance='no') 'fine!'
    ENDIF 
 
-   if (rank .eq. 0) WRITE(*,*)  '..now loading in Lare variables..'
+   WRITE(*,*)  '..now loading in Lare variables..'
    DO WHILE (frame.LE.(nframes))
     IF (ce) THEN
       INQUIRE(file=TRIM(cfdloc),exist=ce2)
@@ -598,15 +589,15 @@ CONTAINS
 
     CALL MPI_BARRIER(comm, errcode)
 
-    if (allocated(vx)) DEALLOCATE(vx)
-    if (allocated(vy)) DEALLOCATE(vy)
-    if (allocated(vz)) DEALLOCATE(vz)
-    if (allocated(bx)) DEALLOCATE(bx)
-    if (allocated(by)) DEALLOCATE(by)
-    if (allocated(bz)) DEALLOCATE(bz)
-    if (allocated(myx)) DEALLOCATE(myx)
-    if (allocated(myy)) DEALLOCATE(myy)
-    if (allocated(myz)) DEALLOCATE(myz)
+    DEALLOCATE(vx)
+    DEALLOCATE(vy)
+    DEALLOCATE(vz)
+    DEALLOCATE(bx)
+    DEALLOCATE(by)
+    DEALLOCATE(bz)
+    DEALLOCATE(myx)
+    DEALLOCATE(myy)
+    DEALLOCATE(myz)
 
   END SUBROUTINE mpi_close
 !--------------------------------------------------------!  
@@ -830,11 +821,8 @@ CONTAINS
 !creates 2d datatypes for reading in lare2d data (ripped from lare)
 
     INTEGER :: sizes(c_ndims), subsizes(c_ndims), starts(c_ndims)
-    INTEGER :: idir, vdir, mpitype, size_r, mpi_finish_data
-    INTEGER, DIMENSION(2)   :: blocklengths,displacements,datatypes
-    INTEGER, DIMENSION(2)   :: blocklengths2,displacements2,datatypes2
+    INTEGER :: idir, vdir, mpitype
     INTEGER, PARAMETER :: ng = 2 ! Number of ghost cells
-    integer(kind=mpi_address_kind)      :: startloc,endloc
 
     ! File view for cell-centred variables (excluding the ghost cells)
     sizes = global_dims
@@ -1133,58 +1121,6 @@ CONTAINS
     bz_xface = cell_xface
     bz_yface = cell_yface
 
-    call mpi_type_extent(mpireal,size_r,errcode)
-    
-    blocklengths(1) = 17
-    blocklengths(2) = 3
-    !displacements(1) = 0
-    !displacements(2) = 14*size_r
-    datatypes(1) = mpireal
-    datatypes(2) = mpi_integer
-
-    call mpi_get_address(finish_data,startloc,errcode)
-    call mpi_get_address(finish_data%pos,endloc,errcode)
-    displacements(1) = endloc-startloc
-    call mpi_get_address(finish_data%par_num,endloc,errcode)
-    displacements(2) = endloc-startloc
-    
-    call mpi_type_struct(2,blocklengths,displacements,datatypes,mpi_finish_data,errcode)
-    call mpi_type_commit(mpi_finish_data,errcode)
-    !call mpi_type_struct(1,(/14/),(/0/),(/mpireal/),mpi_finish_data2,errcode)
-    !call mpi_type_commit(mpi_finish_data2,errcode)
-    call mpi_type_struct(2,blocklengths,displacements,datatypes,mpi_finish_data2,errcode)
-    call mpi_type_commit(mpi_finish_data2,errcode)
-    
-    blocklengths2(1) = 17
-    blocklengths2(2) = 3
-    !displacements2(1) = 0
-    !displacements2(2) = 17*size_r
-    datatypes2(1) = mpireal
-    datatypes2(2) = mpi_integer
-    
-    call mpi_get_address(start_data,startloc,errcode)
-    call mpi_get_address(start_data%R_s,endloc,errcode)
-    displacements2(1) = endloc-startloc
-    call mpi_get_address(start_data%nok_s,endloc,errcode)
-    displacements2(2) = endloc-startloc
-    
-    call mpi_type_struct(2,blocklengths2,displacements2,datatypes2,mpi_start_data,errcode)
-    call mpi_type_commit(mpi_start_data,errcode)
-
-    !if (rank.eq. 0) then
-    !    call mpi_type_extent(mpi_integer,size_r,errcode)
-    !    print *, 'mpi_routines mpi_integer size = ', size_r
-    !    call mpi_type_extent(mpi_double_precision,size_r,errcode)
-    !    print *, 'mpi_routines mpi_double_precision size = ', size_r
-    !    call mpi_type_extent(mpi_start_data,size_r,errcode)
-    !    print *, 'mpi_routines mpi_start_data size = ', size_r
-    !    call mpi_type_extent(mpi_finish_data,size_r,errcode)
-    !    print *, 'mpi_routines mpi_finish_data size = ', size_r
-    !endif
-
-    !if (rank .eq. 0) call mpi_bcast(finish_data,1,mpi_finish_data,0,mpi_comm_world,errcode)
-    !if (rank .eq. 0) stop
-
   END SUBROUTINE mpi_create_types_2d
 !--------------------------------------------------------!  
   SUBROUTINE mpi_destroy_types
@@ -1200,8 +1136,6 @@ CONTAINS
     CALL MPI_TYPE_FREE(bx_distribution, errcode)
     CALL MPI_TYPE_FREE(by_distribution, errcode)
     CALL MPI_TYPE_FREE(bz_distribution, errcode)
-    CALL MPI_TYPE_FREE(mpi_finish_data, errcode)
-    CALL MPI_TYPE_FREE(mpi_start_data, errcode)
 
   END SUBROUTINE mpi_destroy_types
   
