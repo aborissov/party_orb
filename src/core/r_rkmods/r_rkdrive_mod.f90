@@ -50,7 +50,7 @@ SUBROUTINE RKDRIVE(PAR_NUM,RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
  integer                                :: collisions_initial
- real(num)                              :: U_old,mu_old,gamma_old
+ real(num)                              :: U_old,mu_old,gamma_old,tmpnum
 
  call mpi_comm_size(mpi_comm_world,nproc,errcode)
 
@@ -171,16 +171,10 @@ UNDERFLOW=0
         H = H_old
         call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature,rho)
    endif
-   do while (isnan(U))
-     IF (JTo4 .and. (nproc .eq. 1)) write(51,*) par_num,RSTART,USTART,GAMMASTART
-     exit
-     !mu = mu_old
-     !gamma = gamma_old
-     !U = U_old
-     !H = H/2.0_num
-     !!print *, 'rkcol U was nan, trying again'
-     !call rkcol(mu,gamma,U,B,DUDT,DBDT,UE,H,T,eta,temperature)
-   enddo
+     if (isnan(U)) then
+        if (JTo4 .and. (nproc .eq. 1)) write(51,*) par_num,RSTART,USTART,GAMMASTART
+        exit
+     endif
    CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU, T1, T2)
    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,rho,temperature,eta)
    vpar=U/GAMMA

@@ -86,7 +86,9 @@ contains
 
         if (isnan(U)) then
                 print *, 'rkcol u is nan. vtot = ', vtot, ' beta = ', beta, ' gamma  = ', gamma, ' A_g = ', A_g, ' B_g = ', B_g, 'dt = ', dt
-                stop
+                print *, 'rkcol vtot is nan. stopping particle orbit.'
+                return
+                !stop
                 !print *, 'rkcol U is nan. stopping particle orbit'
         endif
 
@@ -256,9 +258,9 @@ contains
         if (eta .eq. 0.0_num) then
           nu = 0.0_num
         else 
-          alpha = 1.0_num
-          !kappa = 1.0E-6_num
-          kappa = eta_spitzer/eta
+          alpha = 0.0_num
+          kappa = 1.0E-6_num
+          !kappa = eta_spitzer/eta
           !kappa = max(eta_spitzer/eta,1.0E-6_num)
           !print *, 'rkcol kappa = ', kappa, ' temperature = ', temperature*tempscl, ' eta ratio ', eta/eta_spitzer
           lambda_ei = 2.0E8_num/Lscl
@@ -266,7 +268,6 @@ contains
           lambda0 = lambda_ei*kappa
           !lambda0 = lambda_ei*sqrt(kappa)
           lambda = lambda0/(1.0_num + vtot/vtherm)**alpha
-          !print *, 'rkcol mean free path', lambda*Lscl
           nu = vtot/lambda
         end if
         nu = nu*1.0E0_num
@@ -276,7 +277,7 @@ contains
         dt = min(1.0_num/(10.0_num*nu),dt_min)
         !if (eta .ne. 0) print *, 'rkcol 1/nu = ', tscl/nu, ' dt = ', dt*tscl, ' 1/w_g = ', m/(q*sqrt(B(1)**2 + B(2)**2 + B(3)**2)*Bscl), ' ratio ', 1.0_num/kappa
         if (tscl/nu .lt. abs(m/(q*sqrt(B(1)**2 + B(2)**2 + B(3)**2)*Bscl))) then
-                print *, 'scattering more frequent than gyration, stopping orbit'
+                print *, 'scattering more frequent than gyration, stopping orbit,scattering timescale', tscl/nu, ' gyroperiod ', abs(m/(q*sqrt(B(1)**2 + B(2)**2 + B(3)**2)*Bscl))
                 nu = -1.0_num
         endif
 
