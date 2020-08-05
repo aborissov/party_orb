@@ -36,7 +36,9 @@ SUBROUTINE bour_ini
  ny=1024
  nz=256
  rl=nx*ny*nz*3			! typical size of B arrays: 3 = 3 components of field
- reclen=long(8)*long(nx)*long(ny)	
+ !reclen=long(8)*long(nx)*long(ny)	
+ ! ALEXEI: apparently ifort doesn't like long()
+ reclen=8*nx*ny
  
  ALLOCATE(vx(1:nx,1:ny,1:nz,0))
  ALLOCATE(vy(1:nx,1:ny,1:nz,0))

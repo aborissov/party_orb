@@ -87,6 +87,11 @@ IMPLICIT NONE
       !CMT  setup?
   ELSE IF ((str_cmp(FMOD, "TEST")).OR.(str_cmp(FMOD, "test"))) THEN
       !test setup?
+   ! ALEXEI: temporary hardcoded limits added to make things run. Make this
+   ! whole limit selector work better somehow.
+   xee=(/-1., 1./)
+   yee=(/-1., 1./)
+   zee=(/-1., 1./)
   ELSE IF ((str_cmp(FMOD, "NLFF")).OR.(str_cmp(FMOD, "nlff"))) THEN
    NLFFflag=.TRUE.
    CALL NLFFF_ini

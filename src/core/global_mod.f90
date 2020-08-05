@@ -10,7 +10,7 @@ MODULE global
  SAVE 
   
 !########################################################################## 
- CHARACTER(Len = 4), PARAMETER	:: FMOD='MHDp' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
+ CHARACTER(Len = 4), PARAMETER	:: FMOD='test' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
  INTEGER, PARAMETER		:: mysnap=0000	!  no. of ****.cfd/****.sdf file (if "l3d")
  INTEGER, PARAMETER		:: nframes=1	! no. of frames
  CHARACTER(Len = 40)		:: sloc='../../../../data_MHD/'
@@ -131,10 +131,10 @@ MODULE global
  ! (required by LARE modules)
 
  !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/0.1_num,99.9_num/),ye=(/-0.1_num,99.9_num/),ze=(/-19.5_num,79.5_num/)
- !REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-0.9_num,0.9_num/),ye=(/-0.9_num,0.9_num/),ze=(/-100.00_num,100.0_num/)
+ REAL(num), DIMENSION(2), PARAMETER	:: xe=(/-0.9_num,0.9_num/),ye=(/-0.9_num,0.9_num/),ze=(/-100.00_num,100.0_num/)
  !REAL(num), DIMENSION(2), PARAMETER	:: ze=(/-9.5_num,9.5_num/),ye=(/-1.8_num,1.8_num/),xe=(/-1.8_num,3.8_num/)
  !REAL(num), DIMENSION(2), PARAMETER	:: ze=(/0.25_num,19.75_num/),ye=(/-7.5_num,7.5_num/),xe=(/-7.5_num,7.5_num/)	!etab-5 
- REAL(num), DIMENSION(2), PARAMETER	:: ze=(/2.0_num,18.0_num/),ye=(/-8.5_num,8.5_num/),xe=(/-8.5_num,8.5_num/)	!etab-5
+ !REAL(num), DIMENSION(2), PARAMETER	:: ze=(/2.0_num,18.0_num/),ye=(/-8.5_num,8.5_num/),xe=(/-8.5_num,8.5_num/)	!etab-5
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=25.0_num
  REAL(num), PARAMETER			:: eta=7.2527096E13*1e-4/Lscl/Vscl, jcrit=0.8_num, rwidth=0.05_num, etabkg=0.00001_num
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=0.8_num, rwidth=0.05_num, etabkg=0.00001_num		!etab-5
