@@ -13,7 +13,8 @@ IMPLICIT NONE
 
   CONTAINS
 
-SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+!SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
  !##################################################################
  !Driver routine with adaptive stepsize control. It goes from T1 to
  !T2 with accuracy eps. Hmin is the minimum allowed stepsize. nok and 
@@ -33,8 +34,8 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  REAL(num), DIMENSION(3)		:: E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf
  REAL(num), DIMENSION(3)		:: bb, GRADB, ENERGY, UE
  REAL(num), DIMENSION(5)		:: RSCAL 
- REAL(num), DIMENSION(NKEEPMAX)		:: TT
- REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
+ !REAL(num), DIMENSION(NKEEPMAX)		:: TT
+ !REAL(num), DIMENSION(NKEEPMAX,3)	:: S, TOTAL
  REAL(num) 				:: H, HDID, HNEXT, T
  REAL(num) 				:: U, USTART, DUDT, vpar
  REAL(num) 				:: GAMMA, GAMMASTART, DGAMMADT
@@ -45,19 +46,19 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
 
   T=T1
-  TT(1) = T1
+  !TT(1) = T1
   H=SIGN(H1,T2-T1)
   NOK = 0
   NBAD = 0
   DO I = 1,3
    R(I) = RSTART(I)
-   S(1,I) = RSTART(I)
+   !S(1,I) = RSTART(I)
   ENDDO
   U = USTART
   GAMMA = GAMMASTART
-  DO I=1,3
-   TOTAL(1,I) = 0.
-  END DO
+  !DO I=1,3
+  ! TOTAL(1,I) = 0.
+  !END DO
 UNDERFLOW=0
 
  efct=oneuponAQ
@@ -571,7 +572,7 @@ UNDERFLOW=0
 !This is for storing every NSTORE step
    IF (MOD(NSTP,NSTORE)==0) THEN
 
-    TT((NSTP/NSTORE)+1) = T	
+    !TT((NSTP/NSTORE)+1) = T	
     
     CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
     CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -603,10 +604,10 @@ UNDERFLOW=0
     ENERGY(2)=MU*sqrt(dot(B,B))
     ENERGY(3)=sum((DRDT-VPAR*bb)**2)
 
-    DO I = 1,3
-      S((NSTP/NSTORE)+1,I) = R(I)
-      TOTAL((NSTP/NSTORE)+1,I) = ENERGY(I)
-    ENDDO
+    !DO I = 1,3
+    !  S((NSTP/NSTORE)+1,I) = R(I)
+    !  TOTAL((NSTP/NSTORE)+1,I) = ENERGY(I)
+    !ENDDO
 
     e1=efct*0.5_num*M*Vscl*Vpar*Vscl*Vpar
     e2=efct*M*Vscl*Vscl*MU*sqrt(dot(B,B))*gamma*gamma

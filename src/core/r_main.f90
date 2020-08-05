@@ -11,6 +11,7 @@ USE MHDp_fields, ONLY: MHDp_ini, MHDp_fini
 USE M_products, ONLY: DOT, CROSS
 USE M_fields, ONLY: FIELDS
 USE gammadist_mod, ONLY: random_gamma
+USE omp_lib
 
 IMPLICIT NONE
 
@@ -23,8 +24,8 @@ IMPLICIT NONE
  LOGICAL :: file_exists, reset_flag
  
  REAL(num), DIMENSION(3) :: gds, lbox
- REAL(num), DIMENSION(NKEEPMAX) :: TT 
- REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
+ !REAL(num), DIMENSION(NKEEPMAX) :: TT 
+ !REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
  
  CHARACTER(LEN=35)	 :: finfile, sumname
  
@@ -207,6 +208,7 @@ IMPLICIT NONE
   ENDIF
 
   maxwellEfirst=.TRUE.
+  !$OMP PARALLEL
   DO pos_no_x = 0, RSTEPS(1)-1, 1
    DO pos_no_y = 0, RSTEPS(2)-1, 1
     1066 DO pos_no_z = 0, RSTEPS(3)-1, 1
@@ -297,7 +299,8 @@ IMPLICIT NONE
        Rlost=.FALSE.
        !Call the rk sophisticated driver, which then works out the arrays for the
        !time steps and positions.
-       CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL)
+       !CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL) ! Unnecessary TT, S, Total?
+       CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
        
        IF (writesum) write(39,*) Tscl*(T1), Lscl*RSTARTKEEP, oneuponAQ*(GAMMASTARTKEEP-1)*m*c*c, &
        Tscl*(T2), Lscl*RSTART, oneuponAQ*(GAMMASTART-1)*m*c*c
@@ -311,6 +314,7 @@ IMPLICIT NONE
     END DO
    END DO
   END DO 
+  !$OMP END PARALLEL
   IF (writesum) CLOSE(39)
   IF (JTo4) CLOSE(49)
  !CALL MAKEFILE(time_no)
