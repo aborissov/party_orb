@@ -207,13 +207,18 @@ IMPLICIT NONE
   ENDIF
 
   maxwellEfirst=.TRUE.
-  DO WHILE (pos_no_x .LE. RSTEPS(1)-1)
-   DO WHILE (pos_no_y .LE. RSTEPS(2)-1)
-    1066 DO WHILE ((pos_no_z .LE. RSTEPS(3)-1).AND.(pn .LE. pnmax))
+  DO pos_no_x = 0, RSTEPS(1)-1, 1
+   DO pos_no_y = 0, RSTEPS(2)-1, 1
+    1066 DO pos_no_z = 0, RSTEPS(3)-1, 1
+    ! ALEXEI: do we really need to check that we're not exceeding the max number of particles?
+    IF (pn .GT. pnmax) THEN
+      EXIT
+    END IF
+
      DO pos_no_alpha = 2, AlphaSteps,1
       DO pos_no_ekin = 1, EkinSteps,1
        pos_no_r = (/pos_no_x,pos_no_y, pos_no_z/)
-       !print*, tempr
+       
        IF (RANDOMISE_R) THEN
         CALL init_random_seed()
         CALL RANDOM_NUMBER(tempr)
@@ -303,14 +308,9 @@ IMPLICIT NONE
       
       END DO
      END DO
-      pos_no_z=pos_no_z+1
     END DO
-    pos_no_y=pos_no_y+1
-    pos_no_z=0
    END DO
-   pos_no_x=pos_no_x+1
-   pos_no_y=0
-  END DO
+  END DO 
   IF (writesum) CLOSE(39)
   IF (JTo4) CLOSE(49)
  !CALL MAKEFILE(time_no)
