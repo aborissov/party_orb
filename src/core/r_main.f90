@@ -24,8 +24,6 @@ IMPLICIT NONE
  LOGICAL :: file_exists, reset_flag
  
  REAL(num), DIMENSION(3) :: gds, lbox
- !REAL(num), DIMENSION(NKEEPMAX) :: TT 
- !REAL(num), DIMENSION(NKEEPMAX,3) :: S, TOTAL
  
  CHARACTER(LEN=35)	 :: finfile, sumname
  
@@ -299,7 +297,6 @@ IMPLICIT NONE
        Rlost=.FALSE.
        !Call the rk sophisticated driver, which then works out the arrays for the
        !time steps and positions.
-       !CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD,TT,S,TOTAL) ! Unnecessary TT, S, Total?
        CALL RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
        
        IF (writesum) write(39,*) Tscl*(T1), Lscl*RSTARTKEEP, oneuponAQ*(GAMMASTARTKEEP-1)*m*c*c, &
