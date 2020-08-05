@@ -206,14 +206,14 @@ IMPLICIT NONE
   ENDIF
 
   maxwellEfirst=.TRUE.
-  !$OMP PARALLEL
+  !$OMP PARALLEL DO private(MU,USTART,GAMMASTART,Ekin,Alpha,RSTART, reset_flag)
   DO pos_no_x = 0, RSTEPS(1)-1, 1
    DO pos_no_y = 0, RSTEPS(2)-1, 1
     1066 DO pos_no_z = 0, RSTEPS(3)-1, 1
     ! ALEXEI: do we really need to check that we're not exceeding the max number of particles?
-    IF (pn .GT. pnmax) THEN
-      EXIT
-    END IF
+    !IF (pn .GT. pnmax) THEN
+    !  EXIT
+    !END IF
 
      DO pos_no_alpha = 2, AlphaSteps,1
       DO pos_no_ekin = 1, EkinSteps,1
@@ -278,8 +278,8 @@ IMPLICIT NONE
 	 print*, 'initial |B| is too small: trying a new position'
 	 pn=pn-1
 	 !pos_no_z=pos_no_z-1
-	 !CYCLE
-	 GO TO 1066
+	 CYCLE
+	 !GO TO 1066
 	 ! remember, random variable seed based on system clock, so will take a second or two to generate a new seed!
 	ELSE   
          ! if the position is SPECIFIED then skip this one	 
@@ -311,7 +311,7 @@ IMPLICIT NONE
     END DO
    END DO
   END DO 
-  !$OMP END PARALLEL
+  !$OMP END PARALLEL DO
   IF (writesum) CLOSE(39)
   IF (JTo4) CLOSE(49)
  !CALL MAKEFILE(time_no)
