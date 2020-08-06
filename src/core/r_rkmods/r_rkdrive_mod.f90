@@ -22,7 +22,7 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
 !##################################################################
   
  IMPLICIT NONE
- INTEGER				:: NOK, NBAD, I, UNDERFLOW 
+ INTEGER				:: NOK, NBAD, I, UNDERFLOW, file_index
  INTEGER, DIMENSION(6), SAVE 		:: bcroute = (/-1,-1,-1,-1,-1,-1/)
  REAL(num), PARAMETER			:: TINY=1E-20
  REAL(num), INTENT(IN)			:: EPS, H1,MU
@@ -57,8 +57,9 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
 UNDERFLOW=0
 
  efct=oneuponAQ
+ file_index = pn + 10 ! need offset because fortran already uses 0,5,6
  IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,pn    !
- IF (writervs)  open(29,file=rvfilename,recl=1024,status='unknown')     	 
+ IF (writervs)  open(file_index,file=rvfilename,recl=1024,status='unknown')     	 
  IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')"),dlocR,pn    !
  IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')"),dlocR,pn    !
  IF (JTo2)  open(56,file=tempfile2,recl=1024,status='unknown')
@@ -107,7 +108,7 @@ UNDERFLOW=0
  
   CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT, MU, T1, T2)
   
-  IF (writervs)  write(29,*)Tscl*(T-T1),	&   !1
+  IF (writervs)  write(file_index,*)Tscl*(T-T1),	&   !1
   Lscl*R,						&   !2,3,4
   Vscl*VPAR,						&   !5
   MU*sqrt(dot(B,B)),					&   !6
@@ -159,7 +160,7 @@ UNDERFLOW=0
    !print 667, NSTP,NSTPMAX, R, B, E
    !667 format (I9,'/',I9,' R=[',ES9.2,',',ES9.2,',',ES9.2,'], B=[',ES9.2,',',ES9.2,',',ES9.2,'], E=[',ES9.2,',',ES9.2,',',ES9.2,']')
    
-   IF ((writervs).AND.(everystepswitch)) write(29,*)Tscl*(T-T1),	&   !1
+   IF ((writervs).AND.(everystepswitch)) write(file_index,*)Tscl*(T-T1),	&   !1
     Lscl*R,						&   !2,3,4
     Vscl*VPAR,						&   !5
     MU*sqrt(dot(B,B)),					&   !6
@@ -606,7 +607,7 @@ UNDERFLOW=0
     gyroperiod=1.0_num/gyrofreq
     gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))
     
-    IF (writervs)  write(29,*)Tscl*(T-T1),	&   !1
+    IF (writervs)  write(file_index,*)Tscl*(T-T1),	&   !1
       Lscl*R,						&   !2,3,4
       Vscl*VPAR,					&   !5
       MU*sqrt(dot(B,B)),				&   !6
@@ -740,7 +741,7 @@ UNDERFLOW=0
  IF (JTo4) 	write(49,*), 'N'
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
- IF (writervs)	CLOSE(29)
+ IF (writervs)	CLOSE(file_index)
  RETURN
 
 END SUBROUTINE RKDRIVE

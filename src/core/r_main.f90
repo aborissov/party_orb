@@ -228,7 +228,9 @@ IMPLICIT NONE
        ENDIF
        RSTARTKEEP=RSTART     !remember where we started
        
-       pn= pn + 1
+       !$OMP ATOMIC
+         pn= pn + 1
+       !$OMP END ATOMIC
        !call progress(pn,nparticles) ! generate the progress bar.
        
        !IF (JTo4) write(49,"(I4)",advance='no'), pn	   
@@ -276,7 +278,9 @@ IMPLICIT NONE
         IF (RANDOMISE_R) THEN 
 	 ! if positions are random, then go back and generate a new random position	 
 	 print*, 'initial |B| is too small: trying a new position'
-	 pn=pn-1
+     !$OMP ATOMIC
+	   pn=pn-1
+     !$OMP END ATOMIC
 	 !pos_no_z=pos_no_z-1
 	 CYCLE
 	 !GO TO 1066

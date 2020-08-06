@@ -28,7 +28,7 @@ MODULE global
  
 !JT DEBUGGING SWITCHES:
  LOGICAL, PARAMETER		:: writervs=.TRUE., writesum=.FALSE.			! ARE WE WRITING? (ALWAYS TRUE!) 
- LOGICAL, PARAMETER		:: JTo=.TRUE., JTo2=.FALSE., JTo3=.FALSE., JTO4=.TRUE.	! various debugging switches (2&3 output every NSTP)
+ LOGICAL, PARAMETER		:: JTo=.FALSE., JTo2=.FALSE., JTo3=.FALSE., JTO4=.FALSE.	! various debugging switches (2&3 output every NSTP)
  LOGICAL, PARAMETER		:: FIELDDUMP=.FALSE.					! switch to dump the lare OR NLFFF fields to unformatted data files.
  LOGICAL, PARAMETER		:: everystepswitch=.FALSE.				! dumps EVERY NSTP to each particle data file.
  
