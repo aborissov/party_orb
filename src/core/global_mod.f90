@@ -23,7 +23,7 @@ MODULE global
  INTEGER(KIND=8), PARAMETER	:: NSTPMAX  = 5E9	! max no of steps
  INTEGER(KIND=8)		:: NSTP				! step counter
  INTEGER, PARAMETER		:: NSTORE =50, MAXTIME=200	! how often does the RK solver output data, every NSTORE steps?
- INTEGER 			:: ix, iy, iz,it, iix, iiy, iiz,iit, i
+ INTEGER 			:: ix, iy, iz,it, iix, iiy, iiz,iit, i, j
  INTEGER 			:: frame 
  
 !JT DEBUGGING SWITCHES:
@@ -170,7 +170,7 @@ MODULE global
  !---BOURDIN DATA DEFINITIONS---! 
  CHARACTER(Len = 8)		:: filetypeb='.bin_f77'
  LOGICAL			:: bourdinflag, l3dflag, analyticalflag, l2dflag,FREflag, testflag, CMTflag, NLFFflag, MHDpflag
- REAL(num), DIMENSION(2)	:: xee, yee, zee
+ REAL(num), DIMENSION(3)	:: spatial_extent_lower_bound, spatial_extent_upper_bound
   
   ! MPI data
  INTEGER :: rank, proc_x_min, proc_x_max, proc_y_min, proc_y_max, proc_z_min, proc_z_max
@@ -216,7 +216,7 @@ MODULE global
   
   INTEGER, DIMENSION(:), ALLOCATABLE	:: global_dims, local_dims
   REAL(num), DIMENSION(:), ALLOCATABLE :: extents, extent, stagger
- 
+
 !----------------------------------------------------
  contains
 !----------------------------------------------------!

@@ -167,7 +167,7 @@ UNDERFLOW=0
    !organising boundary conditions:
    ! CHECK X bottom and top, Y bottom and top, Z bottom and top.
    
-    IF ((R(1).LE.xee(1)).AND.(DRDT(1).LT.0)) THEN	! if bottom bound AND heading downwards 
+    IF ((R(1).LE.spatial_extent_lower_bound(1)).AND.(DRDT(1).LT.0)) THEN	! if bottom bound AND heading downwards 
        101 SELECT CASE(bcroute(1))
        CASE(-1) ! setup on first use of subroutine
         IF (str_cmp(xlowbc, bcchoices(1))) THEN 	!transparent
@@ -217,7 +217,7 @@ UNDERFLOW=0
         CYCLE
        END SELECT
     ENDIF
-    IF ((R(1).GE.xee(2)).AND.(DRDT(1).GT.0)) THEN	! if top bound AND heading upwards
+    IF ((R(1).GE.spatial_extent_upper_bound(1)).AND.(DRDT(1).GT.0)) THEN	! if top bound AND heading upwards
        102 SELECT CASE(bcroute(2))
        CASE(-1)
         IF (str_cmp(xupbc, bcchoices(1))) THEN 
@@ -267,7 +267,7 @@ UNDERFLOW=0
         CYCLE
        END SELECT
     ENDIF
-    IF ((R(2).LE.yee(1)).AND.(DRDT(2).LT.0)) THEN	! if bottom bound AND heading downwards 
+    IF ((R(2).LE.spatial_extent_lower_bound(2)).AND.(DRDT(2).LT.0)) THEN	! if bottom bound AND heading downwards 
        103 SELECT CASE(bcroute(3))
        CASE(-1) ! setup on first use of subroutine
         IF (str_cmp(ylowbc, bcchoices(1))) THEN !transparent
@@ -317,7 +317,7 @@ UNDERFLOW=0
         CYCLE
        END SELECT
     ENDIF
-    IF ((R(2).GE.yee(2)).AND.(DRDT(2).GT.0)) THEN	! if top bound AND heading upwards
+    IF ((R(2).GE.spatial_extent_upper_bound(2)).AND.(DRDT(2).GT.0)) THEN	! if top bound AND heading upwards
        104 SELECT CASE(bcroute(4))
        CASE(-1) 
         IF (str_cmp(yupbc, bcchoices(1))) THEN 
@@ -367,7 +367,7 @@ UNDERFLOW=0
         CYCLE
        END SELECT
     ENDIF   
-    IF ((R(3).LE.zee(1)).AND.(DRDT(3).LT.0)) THEN	! if bottom bound AND heading downwards 
+    IF ((R(3).LE.spatial_extent_lower_bound(3)).AND.(DRDT(3).LT.0)) THEN	! if bottom bound AND heading downwards 
        105 SELECT CASE(bcroute(5))
        CASE(-1) ! setup on first use of subroutine
         IF (str_cmp(zlowbc, bcchoices(1))) THEN
@@ -418,7 +418,7 @@ UNDERFLOW=0
         CYCLE
        END SELECT
     ENDIF
-    IF ((R(3).GE.zee(2)).AND.(DRDT(3).GT.0)) THEN	! if TOP zbound AND heading upwards 
+    IF ((R(3).GE.spatial_extent_upper_bound(3)).AND.(DRDT(3).GT.0)) THEN	! if TOP zbound AND heading upwards 
        106 SELECT CASE(bcroute(6))
        CASE(-1)
         IF (str_cmp(zupbc, bcchoices(1))) THEN 

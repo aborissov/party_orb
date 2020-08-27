@@ -6,7 +6,7 @@
 # --- make sure the right one is commented in the main body settings below
 
 # Set the compiler flags 
-FFLAGS = -O3 -J mod -fcheck=bounds -fno-range-check #-g
+FFLAGS = -g -O3 -J mod -fcheck=bounds -fno-range-check -fopenmp
 #FFLAGS = -o0 -J mod -C -fbounds-check -g -Wall #-fdefault-real-8 	# debugging flags
 #FFLAGS = -O3 -C -g -traceback -check all -warn all 			# mpif90 error flags
 #FFLAGS = -O3
@@ -60,7 +60,7 @@ OBJFILESR = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc
 	sdf_output_point.o sdf_output_point_r4.o sdf_output_point_r8.o sdf_output_point_ru.o\
 	sdf_output_station.o sdf_output_station_r4.o sdf_output_station_r8.o sdf_output_station_ru.o\
 	iocontrol.o input.o inputfunctions.o input_cartesian.o iocommon.o bourdinfields_mod.o NLFFfields_mod.o\
-	separatorfields_mod.o CMTfields_mod.o field_selector_mod.o gammadist_mod.o r_main.o
+	separatorfields_mod.o CMTfields_mod.o field_selector_mod.o gammadist_mod.o cell_struct_mod.o new_main.o
 
 
 FULLTARGETN = $(BINDIR)/$(TARGETN)
@@ -105,6 +105,7 @@ datatidy:
 
 # All the dependencies
 global_mod.o: global_mod.f90 sdf_job_info.o
+cell_struct_mod.o: cell_struct_mod.f90 global_mod.o products_mod.o field_selector_mod.o r_rkdrive_mod.o	
 products_mod.o: products_mod.f90 global_mod.o
 gammadist_mod.o: gammadist_mod.f90 global_mod.o
 lare_functions_mod.o: lare_functions_mod.f90 global_mod.o
@@ -182,5 +183,5 @@ r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o fiel
 #mp
 nr_main.o: nr_main.f90 global_mod.o mpi_routines.o nr_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
 		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o
-r_main.o: r_main.f90 global_mod.o mpi_routines.o r_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
-		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o
+new_main.o: new_main.f90 global_mod.o mpi_routines.o r_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
+		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o cell_struct_mod.o
