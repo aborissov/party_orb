@@ -26,10 +26,11 @@ subroutine process_cell(self, n_part_per_cell, nok, nbad)
   integer :: i, n_part_per_cell
   integer :: nok, nbad ! ALEXEI: check out what these are for.
   logical :: reset_flag
+  real(num), dimension(3) :: rstart
 
   !$omp parallel do private(mu,ustart,gammastart,Ekin,alpha,rstart,reset_flag)
   do i = 1, n_part_per_cell
-    rstart = self % particle_coords(i,:)
+    rstart = self % particle_coords(:,i)
     Ekin = sqrt(self % particle_v_par(i) * self % particle_v_par(i) + &
                 self % particle_v_perp(i) * self % particle_v_perp(i))
     ! Calculate magnetic moment, initial 4-velocity, gamma

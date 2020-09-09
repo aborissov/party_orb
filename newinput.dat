@@ -20,7 +20,7 @@ RSTEPS(2)=5
 
 R1(3)=0
 R2(3)=0
-RSTEPS(3)=3
+RSTEPS(3)=1
 
 EkinLow=2e1
 EkinHigh=2e1

@@ -67,7 +67,6 @@ UNDERFLOW=0
  IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,pn    !
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
  
-!print*, "R=", R
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  bb=B/sqrt(dot(B,B))

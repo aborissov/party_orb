@@ -10,10 +10,10 @@ MODULE global
  SAVE 
   
 !########################################################################## 
- CHARACTER(Len = 4), PARAMETER	:: FMOD='test' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
- INTEGER, PARAMETER		:: mysnap=0000	!  no. of ****.cfd/****.sdf file (if "l3d")
+ CHARACTER(Len = 4), PARAMETER	:: FMOD='l2d' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
+ INTEGER, PARAMETER		:: mysnap=0000	!  no. of ****.cfd or ****.sdf file (if "l3d")
  INTEGER, PARAMETER		:: nframes=1	! no. of frames
- CHARACTER(Len = 40)		:: sloc='../../../../data_MHD/'
+ CHARACTER(Len = 40)		:: sloc='lare_snapshots/'
 
 !##########################################################################
 ! now some stuff required to plug in lare data 
@@ -149,7 +149,8 @@ MODULE global
  !INTEGER, PARAMETER				:: nx_global=256, ny_global=256, nz_global=512		! alan's lare3d sdf config twoloops
  !INTEGER, PARAMETER				:: nx_global=256, ny_global=256, nz_global=256		! Steph/Duncan NLFFF resolution
  !INTEGER, PARAMETER				:: nx_global=512, ny_global=512, nz_global=512		! alan etab-5 resolution
- INTEGER, PARAMETER				:: nx_global=255, ny_global=255, nz_global=249		! Paolo MHD resolution
+ !INTEGER, PARAMETER				:: nx_global=255, ny_global=255, nz_global=249		! Paolo MHD resolution
+ INTEGER, PARAMETER				:: nx_global=512, ny_global=512, nz_global=1
  INTEGER, PARAMETER 				:: data_dir_max_length = 64
  INTEGER 					:: nx, ny, nz	
  INTEGER, DIMENSION(:), ALLOCATABLE		:: dims

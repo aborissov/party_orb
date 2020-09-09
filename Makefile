@@ -6,7 +6,7 @@
 # --- make sure the right one is commented in the main body settings below
 
 # Set the compiler flags 
-FFLAGS = -g -O3 -J mod -fcheck=bounds -fno-range-check -fopenmp
+FFLAGS = -g -O3 -J mod -fcheck=bounds -fno-range-check #-fopenmp
 #FFLAGS = -o0 -J mod -C -fbounds-check -g -Wall #-fdefault-real-8 	# debugging flags
 #FFLAGS = -O3 -C -g -traceback -check all -warn all 			# mpif90 error flags
 #FFLAGS = -O3

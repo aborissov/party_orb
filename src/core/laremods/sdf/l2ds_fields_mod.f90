@@ -47,7 +47,7 @@ CONTAINS
     CALL sdf_read_header(sdf_handle, step, time, code_name, code_io_version, &
     string_len, restart_flag)
 
-IF (.NOT. restart_flag) THEN
+    IF (.NOT. restart_flag) THEN
       IF (rank == 0) THEN
         PRINT*, '*** ERROR ***'
         PRINT*, 'SDF file is not a restart dump. Unable to continue.'

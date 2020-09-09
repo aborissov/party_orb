@@ -244,10 +244,14 @@ CONTAINS
    !print*, maxval(myx), xe(2)
    !print*, minval(myx), xe(1)
    WRITE(*,*) '..particle start positions beyond specified lare grid range in x'
+   write(*,*) 'particle grid x min max:', xe(1), xe(2)
+   write(*,*) 'lare grid x min max:', minval(myx), maxval(myx)
    gflag=.true.
   ENDIF
   IF (.not. ((maxval(myy).ge.ye(2)).OR.(minval(myy).le.ye(1)))) THEN
    WRITE(*,*) '..particle start positions beyond specified lare grid range in y'
+   write(*,*) 'particle grid y min max:', ye(1), ye(2)
+   write(*,*) 'lare grid y min max:', minval(myy), maxval(myy)
    gflag=.true.
   ENDIF
   IF (.not. ((maxval(myz).ge.ze(2)).OR.(minval(myz).le.ze(1)))) THEN
@@ -485,7 +489,6 @@ CONTAINS
   
   INQUIRE(file=TRIM(cfdloc),exist=ce)
   INQUIRE(file=TRIM(sdfloc),exist=se)
-  
 
   IF ((ce).NEQV.(se)) THEN	! do flags differ? (if so, one is ON!)
    IF (ce) THEN
@@ -501,22 +504,28 @@ CONTAINS
    END IF
   ELSE
    IF (ce.AND.se) THEN
-    print*, 'ERROR: BOTH cfd and sfd formats at same location, terminating'
+    print*, 'ERROR: BOTH cfd and sdf formats at same location, terminating'
     STOP
    ELSE
-    print*, 'ERROR: NEITHER cfd and sfd formats found at location, terminating'
+    print*, 'ERROR: NEITHER cfd and sdf formats found at location, terminating'
     print*, '-OR SOMETHING ELSE HAS GONE HORRIBLY WRONG-'
     STOP
    ENDIF
   ENDIF
-   
+  
   WRITE(*,101)  'checking grid extent: ' 
    IF (.not. ((maxval(myx).ge.xe(2)).OR.(minval(myx).le.xe(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in x'
+    write(*,*) 'particle grid x min max:', xe(1), xe(2)
+    write(*,*) 'lare grid x min max:', minval(myx), maxval(myx)
+    call abort
     gflag=.true.
    ENDIF
    IF (.not. ((maxval(myy).ge.ye(2)).OR.(minval(myy).le.ye(1)))) THEN
     WRITE(*,*) '..particle start positions beyond specified lare grid range in y'
+    write(*,*) 'particle grid y min max:', ye(1), ye(2)
+    write(*,*) 'lare grid y min max:', minval(myy), maxval(myy)
+    call abort
     gflag=.true.
    ENDIF
    IF (gflag) THEN
@@ -606,7 +615,7 @@ CONTAINS
     DEALLOCATE(bz)
     DEALLOCATE(myx)
     DEALLOCATE(myy)
-    DEALLOCATE(myz)
+    if (allocated(myz)) DEALLOCATE(myz)
 
   END SUBROUTINE mpi_close
 !--------------------------------------------------------!  

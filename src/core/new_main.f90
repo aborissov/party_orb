@@ -31,10 +31,25 @@ IMPLICIT NONE
   CALL read_param
      
   ! Specify box limits
-  ! ALEXEI: temporary hardcoded limits added to make things run. Make this
-  ! whole limit selector work better somehow.
-  spatial_extent_lower_bound = (/-1., -1., -1./)
-  spatial_extent_upper_bound = (/1., 1., 1./)
+  IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN
+   l2dflag=.TRUE.
+   c_ndims=2
+   spatial_extent_lower_bound = (/-1., -1., -1./)
+   spatial_extent_upper_bound = (/1., 1., 1./)
+   CALL MPI_INIT(errcode)
+   CALL mpi_initialise_2d
+   IF ((R1(3).NE.R2(3)).OR.(RSTEPS(3).GT.1)) THEN
+    PRINT*, '-FATAL ERROR-'
+    PRINT*, 'Lare2D data requires single z position value in initial grid!!'
+    STOP
+   ENDIF
+   PRINT*, '..evaluating particle array against lare grid..'
+  ELSE
+    ! ALEXEI: temporary hardcoded limits added to make things run. Make this
+    ! whole limit selector work better somehow.
+    spatial_extent_lower_bound = (/-1., -1., -1./)
+    spatial_extent_upper_bound = (/1., 1., 1./)
+  ENDIF
    
   ! Check that particles do not start outside the box extent!
   DO i = 1,3
@@ -50,24 +65,29 @@ IMPLICIT NONE
   ! Calculate total number of particles and step sizes for spatial and alpha grid
   nparticles=RSTEPS(1)*RSTEPS(2)*RSTEPS(3)*(AlphaSteps-1)*EkinSteps
   dAlpha = (AlphaMax-AlphaMin)/(AlphaSteps - 1.0d0) 
+  box_size = (/R2(1)-R1(1),R2(2)-R1(2),R2(3)-R1(3)/)
   DO i=1,3
     IF (RSTEPS(i).EQ.1) THEN 	;! if rsteps=1, 1/(rsteps-1)=1/0!!
-      spatial_grid_step(i)=1.0_num 
+      spatial_grid_step(i)=box_size(i)
     ELSE 
-      spatial_grid_step(i)=1.0_num/REAL(RSTEPS(i)-1)
+      spatial_grid_step(i)=box_size(i)/REAL(RSTEPS(i)-1)
     ENDIF
   ENDDO
-  box_size = (/R2(1)-R1(1),R2(2)-R1(2),R2(3)-R1(3)/)
 
   ! Init cells
   ! ALEXEI: for testing just using one cell for now, so n_part_per_cell = nparticles
   n_part_per_cell = nparticles
   cells = init_cells(n_cells, n_part_per_cell)
 
+  ! Integrate particle orbits in the cells.
   do i = 1, n_cells
-    !call process_cell(cells(i))
     call cells(i) % process(n_part_per_cell, nok, nbad)
   end do
+
+ IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN   !forget arrays at end
+  CALL mpi_close                     ! mpi_routines.f90
+  CALL MPI_FINALIZE(errcode)
+ ENDIF
 
 !ALEXEI: remember to deallocate all the cells
 
@@ -88,7 +108,7 @@ function init_cells(n_cells, n_part_per_cell) result(cells)
 
     ! Set the allocated quantities to their initial values
     do j = 1,n_part_per_cell
-      cells(i) % particle_coords(:, j) = R1(:) + spatial_grid_step(:) * (i*n_part_per_cell + j)
+      cells(i) % particle_coords(:, j) = R1(:) + spatial_grid_step(:) * ((i-1)*n_part_per_cell + (j-1))
       cells(i) % particle_v_par = 0 ! ALEXEI: place holder put some actual math in here!!!
       cells(i) % particle_v_perp = 0 ! ALEXEI: place holder put some actual math in here!!!
       cells(i) % particle_t = t1

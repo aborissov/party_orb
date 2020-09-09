@@ -31,8 +31,12 @@ SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   ! PRINT*, 'LF', R
   ! PRINT*, 'LF', myx(4), myx(nx-4), myy(4), myy(ny-4), myz(4), myz(nz-4)
   
+  ! ALEXEI: should probably get rid of this check
   IF (((R(1).lt.myx(4)).OR.(R(1).ge.myx(nx-4))).OR.((R(2).lt.myy(4)).OR.(R(2).ge.myy(ny-4)))) THEN
    print*, 'returning as out of bounds'	! this should not get triggered but hey.
+   print *, 'R, myx, myy ', R(1), myx(4), myx(nx-4), R(2), myy(4), myy(ny-4)
+   print *, 'logical expressions ', (R(1).lt.myx(4)), (R(1).ge.myx(nx-4)), (R(2).lt.myy(4)), (R(2).ge.myy(ny-4))
+   call abort
    iquants=-999.99_num
   ENDIF
   
