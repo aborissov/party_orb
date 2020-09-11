@@ -13,6 +13,7 @@ USE M_fields, ONLY: FIELDS
 USE gammadist_mod, ONLY: random_gamma
 USE omp_lib
 USE cell_struct
+USE io
 
 IMPLICIT NONE
  
