@@ -181,7 +181,7 @@ nr_rkdrive_mod.o: nr_rkdrive_mod.f90 global_mod.o nr_derivs_mod.o nr_rkqs_mod.o 
 r_derivs_mod.o: r_derivs_mod.f90 global_mod.o products_mod.o field_selector_mod.o
 r_rkck_mod.o: r_rkck_mod.f90 r_derivs_mod.o global_mod.o field_selector_mod.o
 r_rkqs_mod.o: r_rkqs_mod.f90 global_mod.o r_rkck_mod.o field_selector_mod.o
-r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o field_selector_mod.o
+r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o field_selector_mod.o io_mod.o
 #mp
 nr_main.o: nr_main.f90 global_mod.o mpi_routines.o nr_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
 		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o

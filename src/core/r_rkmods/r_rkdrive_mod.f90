@@ -5,6 +5,7 @@ MODULE M_driverR
     USE M_rkqsR, ONLY: RKQS
     USE M_fields, ONLY: FIELDS
     USE M_products, ONLY: DOT, CROSS
+    USE io
 
 IMPLICIT NONE
 
@@ -41,6 +42,7 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
  REAL(num)				:: MODB, oMODB,  DMODBDS, MODGRADB
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
+ integer(hid_t) :: file_id
 
   T=T1
   H=SIGN(H1,T2-T1)
@@ -66,6 +68,10 @@ UNDERFLOW=0
  IF ((JTo3).AND.(q.gt.0)) WRITE(tempfile3,"(A,'f',I8.8,'p.tmp')"),dlocR,pn    !
  IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,pn    !
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
+
+ ! Init HDF5 IO 
+ ! ALEXEI: get rid of all the other IO
+ call init_particle_io(pn, file_id)
  
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -227,6 +233,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -246,6 +253,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -280,6 +288,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -298,6 +307,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -332,6 +342,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -351,6 +362,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -385,6 +397,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -403,6 +416,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -437,6 +451,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF ((sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)).ge.tanthetathresh) THEN
@@ -456,6 +471,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -490,6 +506,7 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
+        call close_file(file_id)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -508,6 +525,7 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
+         call close_file(file_id)
          RETURN
         ENDIF
        CASE(3)
@@ -560,6 +578,7 @@ UNDERFLOW=0
     T2=T
     USTART = U
     GAMMASTART = GAMMA
+    call close_file(file_id)
     RETURN 
    ENDIF
     
@@ -585,6 +604,7 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+    call close_file(file_id)
     RETURN
    ENDIF
     
@@ -637,6 +657,7 @@ UNDERFLOW=0
     !  T2=T
       USTART = U
       GAMMASTART=GAMMA
+      call close_file(file_id)
       RETURN                            !normal exit
     ENDIF
 
@@ -650,6 +671,7 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+    call close_file(file_id)
     RETURN
    ENDIF   
    
@@ -663,6 +685,7 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+    call close_file(file_id)
     RETURN
    ENDIF
    
@@ -675,6 +698,7 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
+    call close_file(file_id)
     RETURN
    ENDIF
    IF (UNDERFLOW.EQ.1) THEN	! JT fix to array overallocation in l.143
@@ -727,6 +751,7 @@ UNDERFLOW=0
     USTART = U
     GAMMASTART = GAMMA
     print*, 'help'
+    call close_file(file_id)
     RETURN 
    ENDIF
    
@@ -741,6 +766,7 @@ UNDERFLOW=0
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
  IF (writervs)	CLOSE(file_index)
+ call close_file(file_id)
  RETURN
 
 END SUBROUTINE RKDRIVE

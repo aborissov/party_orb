@@ -13,7 +13,7 @@ contains
 ! ALEXEI: add debugging flag to only use this if debugging
 subroutine check_hdf_error(hdferr, message)
   integer :: hdferr
-  character(len = 100) :: message
+  character(len = *), intent(in) :: message
 
   if (hdferr == -1) then
     print *, 'Error ', message
@@ -21,9 +21,9 @@ subroutine check_hdf_error(hdferr, message)
   endif
 end subroutine check_hdf_error
 
-subroutine init_particle_io(particle_id, file_id, dset_id)
+subroutine init_particle_io(particle_id, file_id)
   integer, intent(in)               :: particle_id
-  character(len = 30)               :: filename = "(A1,I10,A5)"
+  character(len = 30)                :: filename 
   integer(hid_t)                    :: file_id, dset_id, dataspace, crp_list
   integer                           :: hdferr
   integer, parameter                :: space_rank = 1
@@ -35,7 +35,7 @@ subroutine init_particle_io(particle_id, file_id, dset_id)
   call h5open_f(hdferr)
   call check_hdf_error(hdferr, 'initialising hdf5')
 
-  write(*,filename) 'p', particle_id, '.hdf5'
+  write(filename,"('p',I0.10,'.hdf5')") particle_id
 
   ! Create output file for this particle
   call h5fcreate_f(filename, h5f_acc_trunc_f, file_id, hdferr)
