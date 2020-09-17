@@ -82,7 +82,7 @@ IMPLICIT NONE
 
   ! Integrate particle orbits in the cells.
   do i = 1, n_cells
-    call cells(i) % process(n_part_per_cell, nok, nbad)
+    call cells(i) % process(n_part_per_cell, i-1, nok, nbad)
   end do
 
  IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN   !forget arrays at end

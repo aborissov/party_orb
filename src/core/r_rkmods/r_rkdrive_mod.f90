@@ -14,7 +14,7 @@ IMPLICIT NONE
 
   CONTAINS
 
-SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
+SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,NBAD)
  !##################################################################
  !Driver routine with adaptive stepsize control. It goes from T1 to
  !T2 with accuracy eps. Hmin is the minimum allowed stepsize. nok and 
@@ -43,6 +43,10 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
  integer(hid_t) :: file_id
+ integer(hid_t), dimension(:), allocatable :: dset_ids
+ integer        :: particle_index, n_io_fields
+ integer        :: offset, write_size, buffer_index, write_step
+ real(num), dimension(:,:), allocatable :: R_buf
 
   T=T1
   H=SIGN(H1,T2-T1)
@@ -59,19 +63,25 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1,NOK,NBAD)
 UNDERFLOW=0
 
  efct=oneuponAQ
- file_index = pn + 10 ! need offset because fortran already uses 0,5,6
- IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')"),dlocR,pn    !
+ file_index = particle_index + 10 ! need offset because fortran already uses 0,5,6
+ IF (writervs) WRITE(rvfilename,"(A,'RV',I8.8,'.dat')") dlocR,particle_index    !
  IF (writervs)  open(file_index,file=rvfilename,recl=1024,status='unknown')     	 
- IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')"),dlocR,pn    !
- IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')"),dlocR,pn    !
+ IF ((JTo2).AND.(q.gt.0)) WRITE(tempfile2,"(A,'d',I8.8,'p.tmp')") dlocR,particle_index    !
+ IF ((JTo2).AND.(q.lt.0)) WRITE(tempfile2,"(A,'d',I8.8,'e.tmp')") dlocR,particle_index    !
  IF (JTo2)  open(56,file=tempfile2,recl=1024,status='unknown')
- IF ((JTo3).AND.(q.gt.0)) WRITE(tempfile3,"(A,'f',I8.8,'p.tmp')"),dlocR,pn    !
- IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')"),dlocR,pn    !
+ IF ((JTo3).AND.(q.gt.0)) WRITE(tempfile3,"(A,'f',I8.8,'p.tmp')") dlocR,particle_index    !
+ IF ((JTo3).AND.(q.lt.0)) WRITE(tempfile3,"(A,'f',I8.8,'e.tmp')") dlocR,particle_index    !
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
 
  ! Init HDF5 IO 
  ! ALEXEI: get rid of all the other IO
- call init_particle_io(pn, file_id)
+  offset = 0
+  write_size = 100
+  write_step = 1
+  allocate(R_buf(3,write_size))
+  buffer_index = 1
+  call init_particle_io(particle_index, n_io_fields, file_id, dset_ids, &
+                        write_size)
  
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -130,14 +140,8 @@ UNDERFLOW=0
   vscl*U,						&   !23
   Vscl*DRDT,						&   !24,25,26
   gyrofreq,gyroperiod,gyrorad				   !27,28,29
-
+  
 !****************************** Main Time-Loop Starts **************
-  !PRINT *, "R=",R
-  !PRINT *, "VPARSTART=",VPARSTART
-  !PRINT *, "Tscl*(T-T1)=",Tscl*(T-T1)
-  !PRINT *, "H=",H
-  !PRINT *, "Vpar=",Vpar
-  !PRINT*, Epar*Escl
   
   DO NSTP = 1, NSTPMAX
    
@@ -182,6 +186,11 @@ UNDERFLOW=0
     vscl*U,						&   !23
     Vscl*DRDT,						&   !24,25,26
     gyrofreq,gyroperiod,gyrorad				   !27,28,29
+
+   if (buffer_index == write_size) then
+     call write_particle_data(file_id, offset, write_size, R_buf)
+     buffer_index = 1
+   endif
    
    DO I = 1,3       !Scaling used to monitor accuracy
     RSCAL(I) = ABS(R(I))+ABS(H*DRDT(I)) + TINY
@@ -226,14 +235,15 @@ UNDERFLOW=0
         GO TO 101 ! now actually head back and select case we want!
        CASE(1)
         print *, 'box extent exit [x lower]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -246,14 +256,15 @@ UNDERFLOW=0
         ELSE
          print *, 'box extent exit [x lower]'
          !print *, sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -281,14 +292,15 @@ UNDERFLOW=0
         GO TO 102
        CASE(1)
         print *, 'box extent exit [x upper]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -300,14 +312,15 @@ UNDERFLOW=0
          CYCLE
         ELSE
          print *, 'box extent exit [x upper]'
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -335,14 +348,15 @@ UNDERFLOW=0
         GO TO 103 ! now actually head back and select case we want!
        CASE(1)
         print *, 'box extent exit [y lower]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -355,14 +369,15 @@ UNDERFLOW=0
         ELSE
          print *, 'box extent exit [y lower]'
          !print *, sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -390,14 +405,15 @@ UNDERFLOW=0
         GO TO 104
        CASE(1)
         print *, 'box extent exit [y upper]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -409,14 +425,15 @@ UNDERFLOW=0
          CYCLE
         ELSE
          print *, 'box extent exit [y upper]'
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -444,14 +461,15 @@ UNDERFLOW=0
         GO TO 105 
        CASE(1)
         print *, 'box extent exit [z lower]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF ((sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)).ge.tanthetathresh) THEN
@@ -464,14 +482,15 @@ UNDERFLOW=0
         ELSE
 	 print *, sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)
          print *, 'box extent exit [z lower]'
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -499,14 +518,15 @@ UNDERFLOW=0
         GO TO 106
        CASE(1)
         print *, 'box extent exit [z upper]'
-        IF (JTo4) write(49,*), 'X'
+        IF (JTo4) write(49,*)  'X'
         DO I = 1,3
          RSTART(I)=R(I)
         ENDDO
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id)
+        call close_file(file_id, dset_ids)
+        deallocate(R_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -518,14 +538,15 @@ UNDERFLOW=0
          CYCLE
         ELSE
          print *, 'box extent exit [z upper]'
-         IF (JTo4) write(49,*), 'X'
+         IF (JTo4) write(49,*)  'X'
          DO I = 1,3
           RSTART(I)=R(I)
          ENDDO
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id)
+         call close_file(file_id, dset_ids)
+         deallocate(R_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -571,14 +592,15 @@ UNDERFLOW=0
     !print 1001, T
     !1001 format ("ERROR: small timestep, not enough points in T array, exiting at T=",ES9.2)
     print*, 'ERROR: small timestep, not enough points in T array, EXITING..'
-    IF (JTo4) write(49,*), 'S'
+    IF (JTo4) write(49,*)  'S'
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2=T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN 
    ENDIF
     
@@ -597,14 +619,15 @@ UNDERFLOW=0
 !			      .AND.(SUM(DBDT).EQ.0.0_num).AND.(SUM(DEDT).EQ.0.0_num) &
     			      .AND.(SUM(Vf).EQ.0.0_num)) THEN	! not technically beyond bourdin range
     print *, 'special box extent exit'
-    IF (JTo4) write(49,*), 'Q'
+    IF (JTo4) write(49,*)  'Q'
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN
    ENDIF
     
@@ -649,7 +672,7 @@ UNDERFLOW=0
     ! normal exit (if time is up):
     IF((T-T2)*(T2-T1) >= 0.) THEN         !Are we done?
       PRINT *, 'time exit'
-      IF (JTo4) write(49,*), 'T'
+      IF (JTo4) write(49,*)  'T'
       !print*, Tscl*T
       DO I = 1,3
         RSTART(I)=R(I)
@@ -657,55 +680,59 @@ UNDERFLOW=0
     !  T2=T
       USTART = U
       GAMMASTART=GAMMA
-      call close_file(file_id)
+      call close_file(file_id, dset_ids)
+      deallocate(R_buf)
       RETURN                            !normal exit
     ENDIF
 
    !exit the calculation if |B| decreases beyond some threshold - remember rg->infinity as b->0
    IF (modb.le.lowbthresh) THEN 
     print *, 'modb is too small'
-    IF (JTo4) write(49,*), 'B'
+    IF (JTo4) write(49,*)  'B'
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN
    ENDIF   
    
    !exit the calculation if the gyroradius approaches the lengthscale of the simulations
    IF (gyrorad.ge.lscl) THEN 
     print *, 'gyroradius is as large as imposed lengthscale!'
-    IF (JTo4) write(49,*), 'G'
+    IF (JTo4) write(49,*)  'G'
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN
    ENDIF
    
    IF ((abs(H).lt.EPS).AND.(abs(HNEXT).lt.EPS)) THEN ! both this and the next step are unbelievably small so quit before we get stuck!
     print *, 'timestep shrink'
-    IF (JTo4) write(49,*), 'H'
+    IF (JTo4) write(49,*)  'H'
     DO I = 1,3
       RSTART(I)=R(I)
     ENDDO
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN
    ENDIF
    IF (UNDERFLOW.EQ.1) THEN	! JT fix to array overallocation in l.143
     print*, 'ERROR: timestep UNDERFLOW in RKQS, EXITING..'
-    IF (JTo4) write(49,*), 'U'
+    IF (JTo4) write(49,*)  'U'
     IF (JTo3) THEN
-      WRITE(tempfile,"(A,'O',I8.8,'.ufl')"),dlocR,pn    !
+      WRITE(tempfile,"(A,'O',I8.8,'.ufl')") dlocR,particle_index    !
       open(55,file=tempfile,recl=1024,status='unknown')
     
       CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -751,7 +778,8 @@ UNDERFLOW=0
     USTART = U
     GAMMASTART = GAMMA
     print*, 'help'
-    call close_file(file_id)
+    call close_file(file_id, dset_ids)
+    deallocate(R_buf)
     RETURN 
    ENDIF
    
@@ -760,13 +788,19 @@ UNDERFLOW=0
     H=HNEXT
    ENDIF
    
+   if (modulo(NSTP, write_step) == 0 .or. NSTP == 1) then
+     R_buf(:,buffer_index) = R(:)
+     buffer_index = buffer_index+1
+   endif
+
   ENDDO                      !if we get to nstpmax...
  PRINT *, 'NSTP Loop ended'
- IF (JTo4) 	write(49,*), 'N'
+ IF (JTo4) 	write(49,*)  'N'
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
  IF (writervs)	CLOSE(file_index)
- call close_file(file_id)
+ call close_file(file_id, dset_ids)
+ deallocate(R_buf)
  RETURN
 
 END SUBROUTINE RKDRIVE

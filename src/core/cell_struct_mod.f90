@@ -19,17 +19,18 @@ end type cell
 
 contains
 
-subroutine process_cell(self, n_part_per_cell, nok, nbad)
+subroutine process_cell(self, n_part_per_cell, cell_index, nok, nbad)
   implicit none
 
   class(cell) :: self
-  integer :: i, n_part_per_cell
+  integer :: i, n_part_per_cell, particle_index, cell_index
   integer :: nok, nbad ! ALEXEI: check out what these are for.
   logical :: reset_flag
   real(num), dimension(3) :: rstart
 
-  !$omp parallel do private(mu,ustart,gammastart,Ekin,alpha,rstart,reset_flag)
+  !$omp parallel do private(mu,ustart,gammastart,Ekin,alpha,rstart,particle_index,reset_flag)
   do i = 1, n_part_per_cell
+    particle_index = i + n_part_per_cell*cell_index
     rstart = self % particle_coords(:,i)
     Ekin = sqrt(self % particle_v_par(i) * self % particle_v_par(i) + &
                 self % particle_v_perp(i) * self % particle_v_perp(i))
@@ -40,7 +41,7 @@ subroutine process_cell(self, n_part_per_cell, nok, nbad)
     ! to replicate this!!! (use reset_flag)
 
     ! Integrate the particle orbit
-    call rkdrive(rstart,ustart,gammastart,mu,t1,t2,eps,h1,nok,nbad)
+    call rkdrive(rstart,ustart,gammastart,mu,t1,t2,eps,h1, particle_index,nok,nbad)
   end do
   !$omp end parallel do
 end subroutine process_cell
