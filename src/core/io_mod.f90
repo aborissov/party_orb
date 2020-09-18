@@ -90,6 +90,14 @@ subroutine write_particle_data(file_id, offset, write_size, &
   integer :: space_rank ! number of dimensions in dataspace
   integer(hsize_t), dimension(:), allocatable :: space_dims ! dataspace dimensions
   real(num), dimension(3, write_size), optional :: data_R
+
+  ! Debugging
+  integer :: i
+
+  ! ALEXEI: check that we get the right data handed over
+  do i = 1, write_size
+    print *, data_R(:, i)
+  end do
  
   ! Reopen the dataset we're writing to
   call h5dopen_f(file_id, 'particle_data', dset_id, hdferr)
@@ -116,7 +124,7 @@ subroutine write_particle_data(file_id, offset, write_size, &
                                size_2d, hdferr)
     call check_hdf_error(hdferr, 'selecting hyperslab')
 
-    call h5dwrite_f(dset_id, h5t_native_real, data_R, size_2d,  &
+    call h5dwrite_f(dset_id, h5t_native_double, data_R, size_2d,  &
                     hdferr, memspace, dataspace)
     call check_hdf_error(hdferr, 'writing data')
 
@@ -124,13 +132,27 @@ subroutine write_particle_data(file_id, offset, write_size, &
   end if
   offset = offset + write_size
 
+  call h5dclose_f(dset_id, hdferr)
+  call check_hdf_error(hdferr, 'closing dataset')
+  call h5sclose_f(dataspace, hdferr)
+  call check_hdf_error(hdferr, 'closing dataspace')
+  call h5sclose_f(memspace, hdferr)
+  call check_hdf_error(hdferr, 'closing memspace')
+
 end subroutine write_particle_data
 
-subroutine close_file(file_id, dset_ids)
+subroutine close_file(file_id, dset_ids, offset, write_size, data)
   integer :: hdferr
   integer(hid_t) :: file_id
   integer(hid_t), dimension(:), allocatable :: dset_ids
+  integer, intent(in) :: write_size
+  integer :: offset
+  real(num), dimension(3, write_size), optional :: data
 
+  ! Write remaining data
+  call write_particle_data(file_id, offset, write_size, data)
+
+  ! Close the file
   call h5fclose_f(file_id, hdferr)
   call check_hdf_error(hdferr, 'closing hdf file')
 

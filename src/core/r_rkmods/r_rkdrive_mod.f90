@@ -140,6 +140,13 @@ UNDERFLOW=0
   vscl*U,						&   !23
   Vscl*DRDT,						&   !24,25,26
   gyrofreq,gyroperiod,gyrorad				   !27,28,29
+
+  ! Write ICs to buffers
+  ! ALEXEI: do we really need the loop here?
+  do i = 1, 3
+    R_buf(i,buffer_index) = R(i)
+  end do
+  buffer_index = buffer_index + 1
   
 !****************************** Main Time-Loop Starts **************
   
@@ -187,7 +194,8 @@ UNDERFLOW=0
     Vscl*DRDT,						&   !24,25,26
     gyrofreq,gyroperiod,gyrorad				   !27,28,29
 
-   if (buffer_index == write_size) then
+   !print *, R
+   if (buffer_index == write_size+1) then
      call write_particle_data(file_id, offset, write_size, R_buf)
      buffer_index = 1
    endif
@@ -242,7 +250,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -263,7 +273,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -299,7 +311,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -319,7 +333,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -355,7 +371,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -376,7 +394,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -412,7 +432,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -432,7 +454,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -468,7 +492,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -489,7 +515,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -525,7 +553,9 @@ UNDERFLOW=0
         T2 = T
         USTART = U
         GAMMASTART = GAMMA
-        call close_file(file_id, dset_ids)
+        ! Close the file, don't forget to write the remaining buffer_index-1
+        ! data entries
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
         deallocate(R_buf)
         RETURN
        CASE(2)
@@ -545,7 +575,9 @@ UNDERFLOW=0
          T2 = T
          USTART = U
          GAMMASTART = GAMMA
-         call close_file(file_id, dset_ids)
+         ! Close the file, don't forget to write the remaining buffer_index-1
+         ! data entries
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
          deallocate(R_buf)
          RETURN
         ENDIF
@@ -599,7 +631,9 @@ UNDERFLOW=0
     T2=T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN 
    ENDIF
@@ -626,7 +660,9 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN
    ENDIF
@@ -680,7 +716,9 @@ UNDERFLOW=0
     !  T2=T
       USTART = U
       GAMMASTART=GAMMA
-      call close_file(file_id, dset_ids)
+      ! Close the file, don't forget to write the remaining buffer_index-1 data
+      ! entries
+      call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
       deallocate(R_buf)
       RETURN                            !normal exit
     ENDIF
@@ -695,7 +733,9 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN
    ENDIF   
@@ -710,7 +750,9 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN
    ENDIF
@@ -724,7 +766,9 @@ UNDERFLOW=0
     T2 = T
     USTART = U
     GAMMASTART = GAMMA
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN
    ENDIF
@@ -778,7 +822,9 @@ UNDERFLOW=0
     USTART = U
     GAMMASTART = GAMMA
     print*, 'help'
-    call close_file(file_id, dset_ids)
+    ! Close the file, don't forget to write the remaining buffer_index-1 data
+    ! entries
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
     deallocate(R_buf)
     RETURN 
    ENDIF
@@ -789,7 +835,9 @@ UNDERFLOW=0
    ENDIF
    
    if (modulo(NSTP, write_step) == 0 .or. NSTP == 1) then
-     R_buf(:,buffer_index) = R(:)
+     do i = 1, 3
+       R_buf(i,buffer_index) = R(i)
+     end do
      buffer_index = buffer_index+1
    endif
 
@@ -799,7 +847,9 @@ UNDERFLOW=0
  IF (JTo3)  	CLOSE(57)
  IF (JTo2)  	CLOSE(56)
  IF (writervs)	CLOSE(file_index)
- call close_file(file_id, dset_ids)
+ ! Close the file, don't forget to write the remaining buffer_index-1 data
+ ! entries
+ call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
  deallocate(R_buf)
  RETURN
 
