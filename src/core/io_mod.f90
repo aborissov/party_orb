@@ -5,6 +5,10 @@ use hdf5
 
 implicit none
 
+integer, parameter :: n_datasets = 2
+character(len=5), dimension(n_datasets), parameter :: dataset_names = (/ "R____", "v_par" /)
+integer, dimension(n_datasets), parameter :: dataset_dim = (/ 3, 1 /)
+
 !------------------------------------------------
 contains
 !------------------------------------------------
@@ -29,7 +33,6 @@ subroutine init_particle_io(particle_id, n_fields, file_id, dset_ids, &
   integer(hid_t)                            :: file_id, dataspace, crp_list
   integer(hid_t), dimension(:), allocatable :: dset_ids
   integer                                   :: hdferr
-  integer, parameter                        :: space_rank = 2
   !integer(hsize_t), dimension(1)           :: max_dim = (/ h5s_unlimited_f /)
   integer(hsize_t), dimension(1)            :: chunk_size = (/ 1 /)
   integer(hsize_t), dimension(2)            :: dims, maxdims
@@ -44,30 +47,31 @@ subroutine init_particle_io(particle_id, n_fields, file_id, dset_ids, &
   ! Create output file for this particle
   call h5fcreate_f(filename, h5f_acc_trunc_f, file_id, hdferr)
   call check_hdf_error(hdferr, 'opening file')
+    
+  ! Allocate array for dataset ids and specify data type
+  allocate(dset_ids(n_datasets))
+  data_type = h5t_native_double
 
-  ! Create data space
-  space_dims = 3
-  dims = (/ 3, 0 /)
-  maxdims = (/ h5s_unlimited_f, h5s_unlimited_f /)
-  call h5screate_simple_f(space_rank, dims, dataspace, hdferr, maxdims)
-  call check_hdf_error(hdferr, 'creating dataspace')
+  do i = 1, n_datasets
 
-  ! Specify chunk size
-  call h5pcreate_f(h5p_dataset_create_f, crp_list, hdferr)
-  call check_hdf_error(hdferr, 'creating property list')
-  call h5pset_chunk_f(crp_list, space_rank, chunk_size, hdferr)
-  call check_hdf_error(hdferr, 'creating chunks')
+    ! Create data space
+    dims = (/ dataset_dim(i), 0 /)
+    maxdims = (/ h5s_unlimited_f, h5s_unlimited_f /)
+    call h5screate_simple_f(2, dims, dataspace, hdferr, maxdims)
+    call check_hdf_error(hdferr, 'creating dataspace')
 
-  ! Create datasets
-  ! ALEXEI: temporarily specify the number of fields here.
-  n_fields = 1
-  allocate(dset_ids(n_fields))
-  data_type = h5t_native_real
-  do i = 1, n_fields
-    call h5dcreate_f(file_id, 'particle_data', data_type, dataspace, dset_ids(i), hdferr, crp_list)
+    ! Specify chunk size
+    call h5pcreate_f(h5p_dataset_create_f, crp_list, hdferr)
+    call check_hdf_error(hdferr, 'creating property list')
+    call h5pset_chunk_f(crp_list, 2, chunk_size, hdferr)
+    call check_hdf_error(hdferr, 'creating chunks')
+
+    ! Create the datasets and close them
+    call h5dcreate_f(file_id, dataset_names(i), data_type, dataspace, dset_ids(i), hdferr, crp_list)
     call check_hdf_error(hdferr, 'creating dataset')
     call h5dclose_f(dset_ids(i), hdferr)
     call check_hdf_error(hdferr, 'closing dataset')
+
   end do
   call h5sclose_f(dataspace, hdferr)
   call check_hdf_error(hdferr, 'closing dataspace')
@@ -75,7 +79,7 @@ subroutine init_particle_io(particle_id, n_fields, file_id, dset_ids, &
 end subroutine init_particle_io
 
 subroutine write_particle_data(file_id, offset, write_size, &
-                               data_R)
+                               data_R, data_v_par)
   integer(hid_t)    :: file_id
   integer(hid_t)    :: memspace
   integer(hid_t)    :: dataspace
@@ -83,55 +87,74 @@ subroutine write_particle_data(file_id, offset, write_size, &
   integer(hid_t)    :: dset_id
   integer, intent(inout)  :: offset ! number of elements alread written
   integer, intent(in)  :: write_size ! number of elements being written
-  integer(hsize_t), dimension(2)  :: offset_2d ! number of elements alread written (2d)
-  integer(hsize_t), dimension(2) :: size_2d ! dimensions of data to write (2d)
-  integer(hsize_t), dimension(2) :: extended_size_2d ! dimensions of dataset after extension (2d)
-  integer(hsize_t)  :: size_1d  ! dimensions of data to write (1d)
-  integer :: space_rank ! number of dimensions in dataspace
-  integer(hsize_t), dimension(:), allocatable :: space_dims ! dataspace dimensions
   real(num), dimension(3, write_size), optional :: data_R
+  real(num), dimension(1, write_size), optional :: data_v_par
 
   ! Debugging
   integer :: i
 
   ! ALEXEI: check that we get the right data handed over
   do i = 1, write_size
-    print *, data_R(:, i)
+    print *, data_v_par(1, i)
   end do
  
-  ! Reopen the dataset we're writing to
-  call h5dopen_f(file_id, 'particle_data', dset_id, hdferr)
-  call check_hdf_error(hdferr, 'opening dataset')
-
+  ! Reopen and write to the individual datasets
   if (present(data_R)) then
-    
-    extended_size_2d = (/ 3, offset+write_size /)
-    size_2d = (/ 3, write_size /)
-    offset_2d = (/ 0, offset /)
-    call h5dset_extent_f(dset_id, extended_size_2d, hdferr)
-    call check_hdf_error(hdferr, 'extending dataset')
-    
-    space_rank = 2
-    allocate(space_dims(space_rank)) ! ALEXEI: do we really need to allocate this every time?
-    space_dims = (/ 3, write_size /)
-    call h5screate_simple_f(space_rank, space_dims, memspace, hdferr)
-    call check_hdf_error(hdferr, 'creating memspace')
-
-    call h5dget_space_f(dset_id, dataspace, hdferr)
-    call check_hdf_error(hdferr, 'getting dataspace')
-
-    call h5sselect_hyperslab_f(dataspace, h5s_select_set_f, offset_2d, &
-                               size_2d, hdferr)
-    call check_hdf_error(hdferr, 'selecting hyperslab')
-
-    call h5dwrite_f(dset_id, h5t_native_double, data_R, size_2d,  &
-                    hdferr, memspace, dataspace)
-    call check_hdf_error(hdferr, 'writing data')
-
-    deallocate(space_dims)
+    call write_array(file_id, 'R____', data_R, offset, write_size, 1)
   end if
+  if (present(data_v_par)) then
+    call write_array(file_id, 'v_par', data_v_par, offset, write_size, 2)
+  end if
+
+  ! Update offset 
   offset = offset + write_size
 
+end subroutine write_particle_data
+
+subroutine write_array(file_id, dset_name, data, offset, n_entries, dataset_index)
+  integer(hid_t), intent(in)    :: file_id
+  character(len=*), intent(in) :: dset_name
+  real(num), dimension(:,:), intent(in) :: data
+  integer, intent(in) :: offset
+  integer, intent(in) :: n_entries
+  integer, intent(in) :: dataset_index
+  integer(hsize_t), dimension(2) :: extended_size_2d
+  integer(hsize_t), dimension(2) :: size_2d
+  integer(hsize_t), dimension(2) :: offset_2d
+  integer(hsize_t), dimension(:), allocatable :: space_dims ! dataspace dimensions
+  integer(hid_t) :: dset_id
+  integer(hid_t) :: dataspace
+  integer(hid_t) :: memspace
+  integer :: hdferr
+    
+  call h5dopen_f(file_id, dset_name, dset_id, hdferr)
+  call check_hdf_error(hdferr, 'opening dataset')
+
+  extended_size_2d = (/ dataset_dim(dataset_index), offset+n_entries /)
+  size_2d = (/ dataset_dim(dataset_index), n_entries /)
+  offset_2d = (/ 0, offset /)
+  call h5dset_extent_f(dset_id, extended_size_2d, hdferr)
+  call check_hdf_error(hdferr, 'extending dataset')
+  
+  allocate(space_dims(2)) ! ALEXEI: do we really need to allocate this every time?
+  space_dims = (/ dataset_dim(dataset_index), n_entries /)
+  call h5screate_simple_f(2, space_dims, memspace, hdferr)
+  call check_hdf_error(hdferr, 'creating memspace')
+
+  call h5dget_space_f(dset_id, dataspace, hdferr)
+  call check_hdf_error(hdferr, 'getting dataspace')
+
+  call h5sselect_hyperslab_f(dataspace, h5s_select_set_f, offset_2d, &
+                             size_2d, hdferr)
+  call check_hdf_error(hdferr, 'selecting hyperslab')
+
+  call h5dwrite_f(dset_id, h5t_native_double, data, size_2d,  &
+                  hdferr, memspace, dataspace)
+  call check_hdf_error(hdferr, 'writing data')
+
+  deallocate(space_dims)
+  
+  ! Close things we opened here
   call h5dclose_f(dset_id, hdferr)
   call check_hdf_error(hdferr, 'closing dataset')
   call h5sclose_f(dataspace, hdferr)
@@ -139,18 +162,19 @@ subroutine write_particle_data(file_id, offset, write_size, &
   call h5sclose_f(memspace, hdferr)
   call check_hdf_error(hdferr, 'closing memspace')
 
-end subroutine write_particle_data
+end subroutine write_array
 
-subroutine close_file(file_id, dset_ids, offset, write_size, data)
+subroutine close_file(file_id, dset_ids, offset, write_size, data_R, data_v_par)
   integer :: hdferr
   integer(hid_t) :: file_id
   integer(hid_t), dimension(:), allocatable :: dset_ids
   integer, intent(in) :: write_size
   integer :: offset
-  real(num), dimension(3, write_size), optional :: data
+  real(num), dimension(3, write_size), optional :: data_R
+  real(num), dimension(1, write_size), optional :: data_v_par
 
   ! Write remaining data
-  call write_particle_data(file_id, offset, write_size, data)
+  call write_particle_data(file_id, offset, write_size, data_R, data_v_par)
 
   ! Close the file
   call h5fclose_f(file_id, hdferr)

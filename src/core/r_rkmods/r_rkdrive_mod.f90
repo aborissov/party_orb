@@ -47,6 +47,7 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,
  integer        :: particle_index, n_io_fields
  integer        :: offset, write_size, buffer_index, write_step
  real(num), dimension(:,:), allocatable :: R_buf
+ real(num), dimension(:,:), allocatable :: v_par_buf
 
   T=T1
   H=SIGN(H1,T2-T1)
@@ -79,6 +80,7 @@ UNDERFLOW=0
   write_size = 100
   write_step = 1
   allocate(R_buf(3,write_size))
+  allocate(v_par_buf(1, write_size))
   buffer_index = 1
   call init_particle_io(particle_index, n_io_fields, file_id, dset_ids, &
                         write_size)
@@ -146,6 +148,7 @@ UNDERFLOW=0
   do i = 1, 3
     R_buf(i,buffer_index) = R(i)
   end do
+  v_par_buf(1, buffer_index) = vpar
   buffer_index = buffer_index + 1
   
 !****************************** Main Time-Loop Starts **************
@@ -196,7 +199,7 @@ UNDERFLOW=0
 
    !print *, R
    if (buffer_index == write_size+1) then
-     call write_particle_data(file_id, offset, write_size, R_buf)
+     call write_particle_data(file_id, offset, write_size, R_buf, v_par_buf)
      buffer_index = 1
    endif
    
@@ -252,8 +255,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -275,8 +279,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -313,8 +318,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -335,8 +341,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -373,8 +380,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -396,8 +404,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -434,8 +443,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -456,8 +466,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -494,8 +505,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF ((sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma)).ge.tanthetathresh) THEN
@@ -517,8 +529,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -555,8 +568,9 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
+        deallocate(v_par_buf)
         RETURN
        CASE(2)
         IF (sqrt(MU*sqrt(dot(B,B))/gamma/gamma)/sqrt(U*U/gamma/gamma).ge.tanthetathresh) THEN
@@ -577,8 +591,9 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
+         deallocate(v_par_buf)
          RETURN
         ENDIF
        CASE(3)
@@ -633,8 +648,9 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
+    deallocate(v_par_buf)
     RETURN 
    ENDIF
     
@@ -662,7 +678,7 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     RETURN
    ENDIF
@@ -718,8 +734,9 @@ UNDERFLOW=0
       GAMMASTART=GAMMA
       ! Close the file, don't forget to write the remaining buffer_index-1 data
       ! entries
-      call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+      call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
       deallocate(R_buf)
+      deallocate(v_par_buf)
       RETURN                            !normal exit
     ENDIF
 
@@ -735,8 +752,9 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
+    deallocate(v_par_buf)
     RETURN
    ENDIF   
    
@@ -752,8 +770,9 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
+    deallocate(v_par_buf)
     RETURN
    ENDIF
    
@@ -768,8 +787,9 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
+    deallocate(v_par_buf)
     RETURN
    ENDIF
    IF (UNDERFLOW.EQ.1) THEN	! JT fix to array overallocation in l.143
@@ -824,8 +844,9 @@ UNDERFLOW=0
     print*, 'help'
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
+    deallocate(v_par_buf)
     RETURN 
    ENDIF
    
@@ -838,6 +859,7 @@ UNDERFLOW=0
      do i = 1, 3
        R_buf(i,buffer_index) = R(i)
      end do
+     v_par_buf(1,buffer_index) = vpar
      buffer_index = buffer_index+1
    endif
 
@@ -849,8 +871,9 @@ UNDERFLOW=0
  IF (writervs)	CLOSE(file_index)
  ! Close the file, don't forget to write the remaining buffer_index-1 data
  ! entries
- call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf)
+ call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
  deallocate(R_buf)
+ deallocate(v_par_buf)
  RETURN
 
 END SUBROUTINE RKDRIVE
