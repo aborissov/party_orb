@@ -209,7 +209,7 @@ FUNCTION T2d(R,T)
    REAL(num), INTENT(IN)			:: T
    REAL(num), DIMENSION(36)			:: T2d
    REAL(num)					:: temp,  modj
-   REAL(num), DIMENSION(2)			:: dg, odg, coffset
+   REAL(num), DIMENSION(2)			:: grid_spacing, grid_spacing_inverse, coffset
    REAL(num), DIMENSION(:), ALLOCATABLE		:: dgt, odgt
    REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
    REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt
@@ -218,14 +218,16 @@ FUNCTION T2d(R,T)
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbydx,dmbydy,dmbzdx,dmbzdy
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmExdx,dmExdy,dmEydx,dmEydy,dmEzdx,dmEzdy
    REAL(num), DIMENSION(:, :), ALLOCATABLE	:: meta
-   INTEGER, DIMENSION(3) 			:: l		! set at value it could never reach!
+   INTEGER, DIMENSION(3) 			:: part_grid_index		! set at value it could never reach!
+   INTEGER, DIMENSION(3) 			:: part_grid_index_check		! ALEXEI: debugging!
    INTEGER					:: jjx, jjy, jjz,jjt, rpt
    LOGICAL					:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
  
     temp=0.0_num
-    dg=(/myx(2)-myx(1),myy(2)-myy(1)/)	! grid spacing
-    odg=(/1.0_num/dg(1),1.0_num/dg(2)/)	! one over grid spacing
-    l=(/-nx,-ny,-nframes/)					! initial value of l, set to silly value (as <=0 triggers flag)   
+    grid_spacing=(/myx(2)-myx(1),myy(2)-myy(1)/)	! grid spacing
+    grid_spacing_inverse=(/1.0_num/grid_spacing(1),1.0_num/grid_spacing(2)/)	! one over grid spacing
+    part_grid_index=(/-nx,-ny,-nframes/)					! initial value of part_grid_index, set to silly value (as <=0 triggers flag)   
+    part_grid_index_check=(/-nx,-ny,-nframes/)					! ALEXEI: debugging!   
     
        
   ! --STEP ONE-- !
@@ -233,23 +235,38 @@ FUNCTION T2d(R,T)
   ! particle found between (jjx,jjy,jjz) and (jjx+1,jjy+1,jjz+1)
   ! need four gridpoints either side to guarantee we can create derivs successfully   
      
-   DO jjx=4,nx-4
-    IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
-      l(1)=jjx
-      EXIT
-    !ELSE
-    !  PRINT *, 'CANNOT FIND R(1) IN LARE x RANGE'
-    ENDIF
-   ENDDO
-   DO jjy=4,ny-4
-    IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
-      l(2)=jjy
-    ! print*, l(2)
-      EXIT
-    !ELSE
-    !  PRINT *, 'CANNOT FIND R(2) IN LARE y RANGE'
-    ENDIF
-   ENDDO
+  ! ALEXEI: why are we starting with 4 here? Do more testing to make sure this
+  ! is correct
+  ! ALEXEI: This assumes uniform grid! make sure to add check for this.
+  part_grid_index(1) = floor((R(1) - myx(4))*grid_spacing_inverse(1)) + 4
+  part_grid_index(2) = floor((R(2) - myy(4))*grid_spacing_inverse(2)) + 4
+  
+  ! DO jjx=4,nx-4
+  !  IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
+  !    part_grid_index_check(1)=jjx
+  !    EXIT
+  !  !ELSE
+  !  !  PRINT *, 'CANNOT FIND R(1) IN LARE x RANGE'
+  !  ENDIF
+  ! ENDDO
+  ! DO jjy=4,ny-4
+  !  IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
+  !    part_grid_index_check(2)=jjy
+  !    EXIT
+  !  !ELSE
+  !  !  PRINT *, 'CANNOT FIND R(2) IN LARE y RANGE'
+  !  ENDIF
+  ! ENDDO
+
+  !if (any(part_grid_index(:) .ne. part_grid_index_check(:))) then
+  !  print *, "calculated and brute force indices don't match."
+  !  print *, "R ", R(:)
+  !  print *, "min max x ", myx(4), myx(nx-4)
+  !  print *, "min max y ", myy(4), myy(ny-4)
+  !  print *, "calculated  ", part_grid_index(:)
+  !  print *, "brute force ", part_grid_index_check(:)
+  !  call abort
+  !endif
 
 
 ! No guarantee we have more than one frame. IF we have one, this routine doesn't bother interpolating in time
@@ -260,7 +277,7 @@ FUNCTION T2d(R,T)
    !print*, ltimes(1), ltimes(0)
    DO jjt=1,nframes
     IF ((T.GE.ltimes(jjt)).AND.((T.LT.ltimes(jjt+1)))) THEN
-      l(3)=jjt
+      part_grid_index(3)=jjt
       EXIT
     !ELSE
     !  PRINT *, 'CANNOT FIND TIME IN LARE TIME RANGE'
@@ -271,7 +288,7 @@ FUNCTION T2d(R,T)
    ALLOCATE(dbxdxt(2),dbxdyt(2),dbydxt(2),dbydyt(2),dbzdxt(2),dbzdyt(2))
    ALLOCATE(dExdxt(2),dExdyt(2),dEydxt(2),dEydyt(2),dEzdxt(2),dEzdyt(2))
   ELSE
-   l(3)=1
+   part_grid_index(3)=1
    rpt=0
    ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1))
    ALLOCATE(dbxdxt(1),dbxdyt(1),dbydxt(1),dbydyt(1),dbzdxt(1),dbzdyt(1))
@@ -279,7 +296,7 @@ FUNCTION T2d(R,T)
   !what happens if there is one frame to work with?
   ENDIF 
 
-  IF (minval(l).le.0) THEN
+  IF (minval(part_grid_index).le.0) THEN
   ! CHECK: have we located the particle on the grid?
    PRINT*, 'particle identified at', L
    PRINT*, 'x/y grid bounds-> 1:', nx, ny
@@ -290,8 +307,8 @@ FUNCTION T2d(R,T)
   
 
 
-!  print*, l(2)
-   coffset=(/(R(1)-myx(l(1)))*odg(1),(R(2)-myy(l(2)))*odg(2)/)
+!  print*, part_grid_index(2)
+   coffset=(/(R(1)-myx(part_grid_index(1)))*grid_spacing_inverse(1),(R(2)-myy(part_grid_index(2)))*grid_spacing_inverse(2)/)
    
    ! --STEP TWO-- !
    ! begin interpolation of basic variables we already have, e.g. bx, by, bz, vx, vy, vz
@@ -299,31 +316,31 @@ FUNCTION T2d(R,T)
   DO it=0,rpt	! NEED TO REPEAT FOR INTERPOLATION BETWEEN FRAMES, JT DEC 2015
   !(dx,dy,f00,f10,f01,f11)
    temp=linterp2d(coffset(1),coffset(2), &
-   bx(l(1),l(2),1,l(3)+it),bx(l(1)+1,l(2),1,l(3)+it),bx(l(1),l(2)+1,1,l(3)+it),bx(l(1)+1,l(2)+1,1,l(3)+it))
+   bx(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),bx(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),bx(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),bx(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    bxt(it+1)=temp		!1
    
    temp=linterp2d(coffset(1),coffset(2), &
-   by(l(1),l(2),1,l(3)+it),by(l(1)+1,l(2),1,l(3)+it),by(l(1),l(2)+1,1,l(3)+it),by(l(1)+1,l(2)+1,1,l(3)+it))
+   by(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),by(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),by(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),by(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    byt(it+1)=temp		!2
    
    temp=linterp2d(coffset(1),coffset(2), &
-   bz(l(1),l(2),1,l(3)+it),bz(l(1)+1,l(2),1,l(3)+it),bz(l(1),l(2)+1,1,l(3)+it),bz(l(1)+1,l(2)+1,1,l(3)+it))
+   bz(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),bz(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),bz(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),bz(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    bzt(it+1)=temp		!3
  !  print*, 'it', it!, 'bzt(it)=', linterp2d(coffset(1),coffset(2), &
-   !bz(l(1),l(2),0,l(3)+it),bz(l(1)+1,l(2),0,l(3)+it),bz(l(1),l(2)+1,0,l(3)+it),bz(l(1)+1,l(2)+1,0,l(3)+it))
- !  print*, bz(l(1),l(2),0,l(3)+it), bz(l(1)+1,l(2),0,l(3)+it)
- !  print*, bz(l(1),l(2)+1,0,l(3)+it),bz(l(1)+1,l(2)+1,0,l(3)+it)
+   !bz(part_grid_index(1),part_grid_index(2),0,part_grid_index(3)+it),bz(part_grid_index(1)+1,part_grid_index(2),0,part_grid_index(3)+it),bz(part_grid_index(1),part_grid_index(2)+1,0,part_grid_index(3)+it),bz(part_grid_index(1)+1,part_grid_index(2)+1,0,part_grid_index(3)+it))
+ !  print*, bz(part_grid_index(1),part_grid_index(2),0,part_grid_index(3)+it), bz(part_grid_index(1)+1,part_grid_index(2),0,part_grid_index(3)+it)
+ !  print*, bz(part_grid_index(1),part_grid_index(2)+1,0,part_grid_index(3)+it),bz(part_grid_index(1)+1,part_grid_index(2)+1,0,part_grid_index(3)+it)
    
    temp=linterp2d(coffset(1),coffset(2), &
-   vx(l(1),l(2),1,l(3)+it),vx(l(1)+1,l(2),1,l(3)+it),vx(l(1),l(2)+1,1,l(3)+it),vx(l(1)+1,l(2)+1,1,l(3)+it))
+   vx(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),vx(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),vx(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),vx(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    vxt(it+1)=temp		!4
    
    temp=linterp2d(coffset(1),coffset(2), &
-   vy(l(1),l(2),1,l(3)+it),vy(l(1)+1,l(2),1,l(3)+it),vy(l(1),l(2)+1,1,l(3)+it),vy(l(1)+1,l(2)+1,1,l(3)+it))
+   vy(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),vy(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),vy(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),vy(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    vyt(it+1)=temp		!5
    
    temp=linterp2d(coffset(1),coffset(2), &
-   vz(l(1),l(2),1,l(3)+it),vz(l(1)+1,l(2),1,l(3)+it),vz(l(1),l(2)+1,1,l(3)+it),vz(l(1)+1,l(2)+1,1,l(3)+it))
+   vz(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),vz(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),vz(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),vz(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    vzt(it+1)=temp		!6
 
    
@@ -338,9 +355,9 @@ FUNCTION T2d(R,T)
    ALLOCATE(mby(-4:5,-4:5))
    ALLOCATE(mbz(-4:5,-4:5))
 
-   mbx=bx(l(1)-4:l(1)+5,l(2)-4:l(2)+5,1,l(3)+it)
-   mby=by(l(1)-4:l(1)+5,l(2)-4:l(2)+5,1,l(3)+it)
-   mbz=bz(l(1)-4:l(1)+5,l(2)-4:l(2)+5,1,l(3)+it)
+   mbx=bx(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
+   mby=by(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
+   mbz=bz(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
 
 
    ! calculate x-derivs first..
@@ -350,9 +367,9 @@ FUNCTION T2d(R,T)
    
     DO iy=-4,5
      DO ix=-2,3
-      dmbxdx(ix,iy)=(-mbx(ix+2,iy)+8.0_num*mbx(ix+1,iy)-8.0_num*mbx(ix-1,iy)+mbx(ix-2,iy))*odg(1)*oneotwelve
-      dmbydx(ix,iy)=(-mby(ix+2,iy)+8.0_num*mby(ix+1,iy)-8.0_num*mby(ix-1,iy)+mby(ix-2,iy))*odg(1)*oneotwelve
-      dmbzdx(ix,iy)=(-mbz(ix+2,iy)+8.0_num*mbz(ix+1,iy)-8.0_num*mbz(ix-1,iy)+mbz(ix-2,iy))*odg(1)*oneotwelve
+      dmbxdx(ix,iy)=(-mbx(ix+2,iy)+8.0_num*mbx(ix+1,iy)-8.0_num*mbx(ix-1,iy)+mbx(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
+      dmbydx(ix,iy)=(-mby(ix+2,iy)+8.0_num*mby(ix+1,iy)-8.0_num*mby(ix-1,iy)+mby(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
+      dmbzdx(ix,iy)=(-mbz(ix+2,iy)+8.0_num*mbz(ix+1,iy)-8.0_num*mbz(ix-1,iy)+mbz(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
      END DO
     END DO
 
@@ -364,9 +381,9 @@ FUNCTION T2d(R,T)
  
     DO iy=-2,3
      DO ix=-4,5
-      dmbxdy(ix,iy)=(-mbx(ix,iy+2)+8.0_num*mbx(ix,iy+1)-8.0_num*mbx(ix,iy-1)+mbx(ix,iy-2))*odg(2)*oneotwelve
-      dmbydy(ix,iy)=(-mby(ix,iy+2)+8.0_num*mby(ix,iy+1)-8.0_num*mby(ix,iy-1)+mby(ix,iy-2))*odg(2)*oneotwelve
-      dmbzdy(ix,iy)=(-mbz(ix,iy+2)+8.0_num*mbz(ix,iy+1)-8.0_num*mbz(ix,iy-1)+mbz(ix,iy-2))*odg(2)*oneotwelve
+      dmbxdy(ix,iy)=(-mbx(ix,iy+2)+8.0_num*mbx(ix,iy+1)-8.0_num*mbx(ix,iy-1)+mbx(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
+      dmbydy(ix,iy)=(-mby(ix,iy+2)+8.0_num*mby(ix,iy+1)-8.0_num*mby(ix,iy-1)+mby(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
+      dmbzdy(ix,iy)=(-mbz(ix,iy+2)+8.0_num*mbz(ix,iy+1)-8.0_num*mbz(ix,iy-1)+mbz(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
      END DO
     END DO
 
@@ -378,9 +395,9 @@ FUNCTION T2d(R,T)
    ALLOCATE(mvx(-2:3,-2:3))
    ALLOCATE(mvy(-2:3,-2:3))
    ALLOCATE(mvz(-2:3,-2:3))
-   mvx=vx(l(1)-2:l(1)+3,l(2)-2:l(2)+3,1,l(3)+it)
-   mvy=vy(l(1)-2:l(1)+3,l(2)-2:l(2)+3,1,l(3)+it)
-   mvz=vz(l(1)-2:l(1)+3,l(2)-2:l(2)+3,1,l(3)+it)
+   mvx=vx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
+   mvy=vy(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
+   mvz=vz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
    
    
    ! now calculate temporary currents and also local eta values
@@ -467,9 +484,9 @@ FUNCTION T2d(R,T)
    ALLOCATE(dmEzdx(0:1,-2:3))  
     DO iy=-2,3
      DO ix=0,1
-      dmExdx(ix,iy)=oneotwelve*(-mEx(ix+2,iy)+8.0_num*mEx(ix+1,iy)-8.0_num*mEx(ix-1,iy)+mEx(ix-2,iy))*odg(1)
-      dmEydx(ix,iy)=oneotwelve*(-mEy(ix+2,iy)+8.0_num*mEy(ix+1,iy)-8.0_num*mEy(ix-1,iy)+mEy(ix-2,iy))*odg(1)
-      dmEzdx(ix,iy)=oneotwelve*(-mEz(ix+2,iy)+8.0_num*mEz(ix+1,iy)-8.0_num*mEz(ix-1,iy)+mEz(ix-2,iy))*odg(1)
+      dmExdx(ix,iy)=oneotwelve*(-mEx(ix+2,iy)+8.0_num*mEx(ix+1,iy)-8.0_num*mEx(ix-1,iy)+mEx(ix-2,iy))*grid_spacing_inverse(1)
+      dmEydx(ix,iy)=oneotwelve*(-mEy(ix+2,iy)+8.0_num*mEy(ix+1,iy)-8.0_num*mEy(ix-1,iy)+mEy(ix-2,iy))*grid_spacing_inverse(1)
+      dmEzdx(ix,iy)=oneotwelve*(-mEz(ix+2,iy)+8.0_num*mEz(ix+1,iy)-8.0_num*mEz(ix-1,iy)+mEz(ix-2,iy))*grid_spacing_inverse(1)
      ENDDO
     ENDDO
 
@@ -480,9 +497,9 @@ FUNCTION T2d(R,T)
    ALLOCATE(dmEzdy(-2:3,0:1))   
     DO iy=0,1
      DO ix=-2,3  
-      dmExdy(ix,iy)=oneotwelve*(-mEx(ix,iy+2)+8.0_num*mEx(ix,iy+1)-8.0_num*mEx(ix,iy-1)+mEx(ix,iy-2))*odg(2)
-      dmEydy(ix,iy)=oneotwelve*(-mEy(ix,iy+2)+8.0_num*mEy(ix,iy+1)-8.0_num*mEy(ix,iy-1)+mEy(ix,iy-2))*odg(2)
-      dmEzdy(ix,iy)=oneotwelve*(-mEz(ix,iy+2)+8.0_num*mEz(ix,iy+1)-8.0_num*mEz(ix,iy-1)+mEz(ix,iy-2))*odg(2)
+      dmExdy(ix,iy)=oneotwelve*(-mEx(ix,iy+2)+8.0_num*mEx(ix,iy+1)-8.0_num*mEx(ix,iy-1)+mEx(ix,iy-2))*grid_spacing_inverse(2)
+      dmEydy(ix,iy)=oneotwelve*(-mEy(ix,iy+2)+8.0_num*mEy(ix,iy+1)-8.0_num*mEy(ix,iy-1)+mEy(ix,iy-2))*grid_spacing_inverse(2)
+      dmEzdy(ix,iy)=oneotwelve*(-mEz(ix,iy+2)+8.0_num*mEz(ix,iy+1)-8.0_num*mEz(ix,iy-1)+mEz(ix,iy-2))*grid_spacing_inverse(2)
      ENDDO
     ENDDO  
    
@@ -555,42 +572,42 @@ FUNCTION T2d(R,T)
 
    IF (nframes.gt.1) THEN
 
-    T2d(1)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),bxt(1),bxt(2))
-    T2d(2)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),byt(1),byt(2))
-    T2d(3)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),bzt(1),bzt(2))
-    T2d(4)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),vxt(1),vxt(2))
-    T2d(5)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),vyt(1),vyt(2))
-    T2d(6)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),vzt(1),vzt(2))
-    T2d(7)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),Ext(1),Ext(2))
-    T2d(8)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),Eyt(1),Eyt(2))
-    T2d(9)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),Ezt(1),Ezt(2))   
-    T2d(10)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),jxt(1),jxt(2))
-    T2d(11)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),jyt(1),jyt(2))
-    T2d(12)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),jzt(1),jzt(2))
-    T2d(13)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbxdxt(1),dbxdxt(2))
-    T2d(14)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbydxt(1),dbydxt(2))
-    T2d(15)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbzdxt(1),dbzdxt(2))
-    T2d(16)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbxdyt(1),dbxdyt(2))
-    T2d(17)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbydyt(1),dbydyt(2))
-    T2d(18)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dbzdyt(1),dbzdyt(2))
+    T2d(1)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),bxt(1),bxt(2))
+    T2d(2)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),byt(1),byt(2))
+    T2d(3)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),bzt(1),bzt(2))
+    T2d(4)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),vxt(1),vxt(2))
+    T2d(5)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),vyt(1),vyt(2))
+    T2d(6)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),vzt(1),vzt(2))
+    T2d(7)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),Ext(1),Ext(2))
+    T2d(8)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),Eyt(1),Eyt(2))
+    T2d(9)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),Ezt(1),Ezt(2))   
+    T2d(10)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),jxt(1),jxt(2))
+    T2d(11)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),jyt(1),jyt(2))
+    T2d(12)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),jzt(1),jzt(2))
+    T2d(13)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbxdxt(1),dbxdxt(2))
+    T2d(14)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbydxt(1),dbydxt(2))
+    T2d(15)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbzdxt(1),dbzdxt(2))
+    T2d(16)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbxdyt(1),dbxdyt(2))
+    T2d(17)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbydyt(1),dbydyt(2))
+    T2d(18)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dbzdyt(1),dbzdyt(2))
     T2d(19)=0.0_num		! Z derivs explicitly set to zero in 2d case
     T2d(20)=0.0_num
     T2d(21)=0.0_num
-    T2d(22)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dExdxt(1),dExdxt(2))
-    T2d(23)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dEydxt(1),dEydxt(2))
-    T2d(24)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dEzdxt(1),dEzdxt(2))
-    T2d(25)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dExdyt(1),dExdyt(2))
-    T2d(26)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dEydyt(1),dEydyt(2))
-    T2d(27)=linterp1d((T-ltimes(l(3)))*odgt(l(3)),dEzdyt(1),dEzdyt(2))
+    T2d(22)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dExdxt(1),dExdxt(2))
+    T2d(23)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dEydxt(1),dEydxt(2))
+    T2d(24)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dEzdxt(1),dEzdxt(2))
+    T2d(25)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dExdyt(1),dExdyt(2))
+    T2d(26)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dEydyt(1),dEydyt(2))
+    T2d(27)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),dEzdyt(1),dEzdyt(2))
     T2d(28)=0.0_num
     T2d(29)=0.0_num
     T2d(30)=0.0_num
-    T2d(31)=(bxt(2)-bxt(1))*odgt(l(3))
-    T2d(32)=(byt(2)-byt(1))*odgt(l(3))
-    T2d(33)=(bzt(2)-bzt(1))*odgt(l(3))
-    T2d(34)=(Ext(2)-Ext(1))*odgt(l(3))	! as we have multiple snapshots, we can calculate time derivs finally!
-    T2d(35)=(Eyt(2)-Eyt(1))*odgt(l(3))
-    T2d(36)=(Ezt(2)-Ezt(1))*odgt(l(3))
+    T2d(31)=(bxt(2)-bxt(1))*odgt(part_grid_index(3))
+    T2d(32)=(byt(2)-byt(1))*odgt(part_grid_index(3))
+    T2d(33)=(bzt(2)-bzt(1))*odgt(part_grid_index(3))
+    T2d(34)=(Ext(2)-Ext(1))*odgt(part_grid_index(3))	! as we have multiple snapshots, we can calculate time derivs finally!
+    T2d(35)=(Eyt(2)-Eyt(1))*odgt(part_grid_index(3))
+    T2d(36)=(Ezt(2)-Ezt(1))*odgt(part_grid_index(3))
     
     DEALLOCATE(dgt,odgt)
    
@@ -644,59 +661,79 @@ FUNCTION T3d(R,T)
 ! (slimmed down version of f3d with only local interpolation!).
 ! OCT2014: updated to include higher order derivs to increase accuracy
 
-   REAL(num), DIMENSION(3), INTENT(IN)		:: R		!actual position
-   REAL(num), INTENT(IN)			:: T
-   REAL(num), DIMENSION(36)			:: T3d
-   REAL(num)					:: temp,  modj
-   REAL(num), DIMENSION(3)			:: dg, odg, coffset
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: dgt, odgt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbxdzt,dbydxt,dbydyt,dbydzt,dbzdxt,dbzdyt,dbzdzt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: dExdxt,dExdyt,dExdzt,dEydxt,dEydyt,dEydzt,dEzdxt,dEzdyt,dEzdzt
-   REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz
-   REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbxdz,dmbydx,dmbydy,dmbydz,dmbzdx,dmbzdy,dmbzdz
-   REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmExdx,dmExdy,dmExdz,dmEydx,dmEydy,dmEydz,dmEzdx,dmEzdy,dmEzdz
-   REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: meta
-   INTEGER, DIMENSION(4) 			:: l		! set at value it could never reach!
-   INTEGER					:: jjx, jjy, jjz,jjt, rpt
-   LOGICAL					:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
+  REAL(num), DIMENSION(3), INTENT(IN)		:: R		!actual position
+  REAL(num), INTENT(IN)			:: T
+  REAL(num), DIMENSION(36)			:: T3d
+  REAL(num)					:: temp,  modj
+  REAL(num), DIMENSION(3)			:: grid_spacing, grid_spacing_inverse, coffset
+  REAL(num), DIMENSION(:), ALLOCATABLE		:: dgt, odgt
+  REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
+  REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbxdzt,dbydxt,dbydyt,dbydzt,dbzdxt,dbzdyt,dbzdzt
+  REAL(num), DIMENSION(:), ALLOCATABLE		:: dExdxt,dExdyt,dExdzt,dEydxt,dEydyt,dEydzt,dEzdxt,dEzdyt,dEzdzt
+  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz
+  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbxdz,dmbydx,dmbydy,dmbydz,dmbzdx,dmbzdy,dmbzdz
+  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmExdx,dmExdy,dmExdz,dmEydx,dmEydy,dmEydz,dmEzdx,dmEzdy,dmEzdz
+  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: meta
+  INTEGER, DIMENSION(4) 			:: part_grid_index		! set at value it could never reach!
+  INTEGER, DIMENSION(4) 			:: part_grid_index_check		! ALEXEI: debugging!
+  INTEGER					:: jjx, jjy, jjz,jjt, rpt
+  LOGICAL					:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
  
-   temp=0.0_num
-   dg=(/myx(2)-myx(1),myy(2)-myy(1),myz(2)-myz(1)/)	! grid spacing
-   odg=(/1.0_num/dg(1),1.0_num/dg(2),1.0_num/dg(3)/)	! one over grid spacing
-   l=(/-nx,-ny,-nz,-nframes/)					! initial value of l, set to silly value (as >=0 triggers flag)   
+  temp=0.0_num
+  grid_spacing=(/myx(2)-myx(1),myy(2)-myy(1),myz(2)-myz(1)/)	! grid spacing
+  grid_spacing_inverse=(/1.0_num/grid_spacing(1),1.0_num/grid_spacing(2),1.0_num/grid_spacing(3)/)	! one over grid spacing
+  part_grid_index=(/-nx,-ny,-nz,-nframes/)					! initial value of part_grid_index, set to silly value (as >=0 triggers flag)   
+  part_grid_index_check=(/-nx,-ny,-nz,-nframes/)					! ALEXEI: debugging!   
     
           
   ! --STEP ONE-- !
   ! first, locate the (x,y,z) position on the grid
   ! particle found between (jjx,jjy,jjz) and (jjx+1,jjy+1,jjz+1)   
      
-   DO jjx=4,nx-4
-    IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
-      l(1)=jjx
-      EXIT
-    ENDIF
-   ENDDO
-   !IF (l(1).eq.(-nx)) fxflag=.TRUE.
-   DO jjy=4,ny-4
-    IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
-      l(2)=jjy
-      EXIT
-    ENDIF
-   ENDDO
-   !IF (l(2).eq.(-ny)) fyflag=.TRUE.
-   DO jjz=4,nz-4
-    IF ((R(3).ge.myz(jjz)).and.(R(3).lt.myz(jjz+1))) THEN
-      l(3)=jjz
-      EXIT
-    ENDIF
-   ENDDO
-   
-   IF ((l(1).eq.(-nx)).or.(l(2).eq.(-ny)).or.(l(3).eq.(-nz))) THEN 
-    !LETS TRY TO CATCH THIS BEFORE NOW
-    !print*, R
-    T3d(1:36)=-999.0_num
-   ENDIF
+  ! ALEXEI: why are we starting with 4 here? Do more testing to make sure this
+  ! is correct
+  ! ALEXEI: This assumes uniform grid! make sure to add check for this.
+  part_grid_index(1) = floor((R(1) - myx(4))*grid_spacing_inverse(1)) + 4
+  part_grid_index(2) = floor((R(2) - myy(4))*grid_spacing_inverse(2)) + 4
+  part_grid_index(3) = floor((R(3) - myz(4))*grid_spacing_inverse(3)) + 4
+  
+  !DO jjx=4,nx-4
+  ! IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
+  !   part_grid_index_check(1)=jjx
+  !   EXIT
+  ! ENDIF
+  !ENDDO
+  !!IF (part_grid_index(1).eq.(-nx)) fxflag=.TRUE.
+  !DO jjy=4,ny-4
+  ! IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
+  !   part_grid_index_check(2)=jjy
+  !   EXIT
+  ! ENDIF
+  !ENDDO
+  !!IF (part_grid_index(2).eq.(-ny)) fyflag=.TRUE.
+  !DO jjz=4,nz-4
+  ! IF ((R(3).ge.myz(jjz)).and.(R(3).lt.myz(jjz+1))) THEN
+  !   part_grid_index_check(3)=jjz
+  !   EXIT
+  ! ENDIF
+  !ENDDO
+
+  !if (any(part_grid_index(:) .ne. part_grid_index_check(:))) then
+  !  print *, "calculated and brute force indices don't match."
+  !  print *, "R ", R(:)
+  !  print *, "min max x ", myx(4), myx(nx-4)
+  !  print *, "min max y ", myy(4), myy(ny-4)
+  !  print *, "min max z ", myz(4), myz(nz-4)
+  !  print *, "calculated  ", part_grid_index(:)
+  !  print *, "brute force ", part_grid_index_check(:)
+  !  call abort
+  !endif
+
+  IF ((part_grid_index(1).eq.(-nx)).or.(part_grid_index(2).eq.(-ny)).or.(part_grid_index(3).eq.(-nz))) THEN 
+   !LETS TRY TO CATCH THIS BEFORE NOW
+   !print*, R
+   T3d(1:36)=-999.0_num
+  ENDIF
 
 ! No guarantee we have more than one frame. IF we have one, this routine doesn't bother interpolating in time
   IF (nframes.gt.1) THEN
@@ -705,8 +742,8 @@ FUNCTION T3d(R,T)
    odgt=1.0_num/dgt
    DO jjt=1,nframes
     IF ((T.GE.ltimes(jjt)).AND.((T.LT.ltimes(jjt+1)))) THEN
-      l(4)=jjt 
-      !print*, (T-ltimes(l(4)))*odgt(l(4))
+      part_grid_index(4)=jjt 
+      !print*, (T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4))
       EXIT
     !ELSE
     !  PRINT *, 'CANNOT FIND TIME IN LARE TIME RANGE'
@@ -717,7 +754,7 @@ FUNCTION T3d(R,T)
    ALLOCATE(dbxdxt(2),dbxdyt(2),dbxdzt(2),dbydxt(2),dbydyt(2),dbydzt(2),dbzdxt(2),dbzdyt(2),dbzdzt(2))
    ALLOCATE(dExdxt(2),dExdyt(2),dExdzt(2),dEydxt(2),dEydyt(2),dEydzt(2),dEzdxt(2),dEzdyt(2),dEzdzt(2))
   ELSE
-   l(4)=1
+   part_grid_index(4)=1
    rpt=0
    ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1))
    ALLOCATE(dbxdxt(1),dbxdyt(1),dbxdzt(1),dbydxt(1),dbydyt(1),dbydzt(1),dbzdxt(1),dbzdyt(1),dbzdzt(1))
@@ -726,7 +763,7 @@ FUNCTION T3d(R,T)
   ENDIF 
 
 
-   coffset=(/(R(1)-myx(l(1)))*odg(1),(R(2)-myy(l(2)))*odg(2),(R(3)-myz(l(3)))*odg(3)/)
+   coffset=(/(R(1)-myx(part_grid_index(1)))*grid_spacing_inverse(1),(R(2)-myy(part_grid_index(2)))*grid_spacing_inverse(2),(R(3)-myz(part_grid_index(3)))*grid_spacing_inverse(3)/)
 
    
    ! --STEP TWO-- !
@@ -734,46 +771,46 @@ FUNCTION T3d(R,T)
        
   DO it=0,rpt	! NEED TO REPEAT FOR INTERPOLATION BETWEEN FRAMES, JT DEC 2015
   
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!1   
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!1   
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   bx(l(1),l(2),l(3),l(4)+it),bx(l(1)+1,l(2),l(3),l(4)+it),bx(l(1),l(2)+1,l(3),l(4)+it),&
-   bx(l(1)+1,l(2)+1,l(3),l(4)+it),bx(l(1),l(2),l(3)+1,l(4)+it),bx(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   bx(l(1),l(2)+1,l(3)+1,l(4)+it),bx(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   bx(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),bx(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),bx(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   bx(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),bx(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),bx(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   bx(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),bx(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    bxt(it+1)=temp
    
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!2
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!2
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   by(l(1),l(2),l(3),l(4)+it),by(l(1)+1,l(2),l(3),l(4)+it),by(l(1),l(2)+1,l(3),l(4)+it),&
-   by(l(1)+1,l(2)+1,l(3),l(4)+it),by(l(1),l(2),l(3)+1,l(4)+it),by(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   by(l(1),l(2)+1,l(3)+1,l(4)+it),by(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   by(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),by(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),by(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   by(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),by(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),by(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   by(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),by(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    byt(it+1)=temp
 
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!3
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!3
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   bz(l(1),l(2),l(3),l(4)+it),bz(l(1)+1,l(2),l(3),l(4)+it),bz(l(1),l(2)+1,l(3),l(4)+it),&
-   bz(l(1)+1,l(2)+1,l(3),l(4)+it),bz(l(1),l(2),l(3)+1,l(4)+it),bz(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   bz(l(1),l(2)+1,l(3)+1,l(4)+it),bz(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   bz(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),bz(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),bz(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   bz(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),bz(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),bz(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   bz(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),bz(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    bzt(it+1)=temp
 
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!4
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!4
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   vx(l(1),l(2),l(3),l(4)+it),vx(l(1)+1,l(2),l(3),l(4)+it),vx(l(1),l(2)+1,l(3),l(4)+it),&
-   vx(l(1)+1,l(2)+1,l(3),l(4)+it),vx(l(1),l(2),l(3)+1,l(4)+it),vx(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   vx(l(1),l(2)+1,l(3)+1,l(4)+it),vx(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   vx(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vx(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vx(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   vx(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),vx(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),vx(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   vx(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),vx(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    vxt(it+1)=temp
 
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!5
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!5
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   vy(l(1),l(2),l(3),l(4)+it),vy(l(1)+1,l(2),l(3),l(4)+it),vy(l(1),l(2)+1,l(3),l(4)+it),&
-   vy(l(1)+1,l(2)+1,l(3),l(4)+it),vy(l(1),l(2),l(3)+1,l(4)+it),vy(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   vy(l(1),l(2)+1,l(3)+1,l(4)+it),vy(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   vy(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vy(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vy(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   vy(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),vy(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),vy(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   vy(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),vy(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    vyt(it+1)=temp
    
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!6
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!6
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
-   vz(l(1),l(2),l(3),l(4)+it),vz(l(1)+1,l(2),l(3),l(4)+it),vz(l(1),l(2)+1,l(3),l(4)+it),&
-   vz(l(1)+1,l(2)+1,l(3),l(4)+it),vz(l(1),l(2),l(3)+1,l(4)+it),vz(l(1)+1,l(2),l(3)+1,l(4)+it), &
-   vz(l(1),l(2)+1,l(3)+1,l(4)+it),vz(l(1)+1,l(2)+1,l(3)+1,l(4)+it))
+   vz(part_grid_index(1),part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vz(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3),part_grid_index(4)+it),vz(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),&
+   vz(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3),part_grid_index(4)+it),vz(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it),vz(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1,part_grid_index(4)+it), &
+   vz(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it),vz(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1,part_grid_index(4)+it))
    vzt(it+1)=temp
    
    ! --STEP THREE--!
@@ -790,13 +827,13 @@ FUNCTION T3d(R,T)
    !ALLOCATE(mby(-2:3,-2:3,-2:3))
    !ALLOCATE(mbz(-2:3,-2:3,-2:3))
      
-   !mbx=bx(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3)
-   !mby=by(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3)
-   !mbz=bz(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3)
-   !print*, l(1), l(2), l(3)
-   mbx=bx(l(1)-4:l(1)+5,l(2)-4:l(2)+5,l(3)-4:l(3)+5,l(4)+it)
-   mby=by(l(1)-4:l(1)+5,l(2)-4:l(2)+5,l(3)-4:l(3)+5,l(4)+it)
-   mbz=bz(l(1)-4:l(1)+5,l(2)-4:l(2)+5,l(3)-4:l(3)+5,l(4)+it)
+   !mbx=bx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
+   !mby=by(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
+   !mbz=bz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
+   !print*, part_grid_index(1), part_grid_index(2), part_grid_index(3)
+   mbx=bx(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
+   mby=by(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
+   mbz=bz(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
 
    !ALLOCATE(dmbxdx(-1:2,-2:3,-2:3))
    !ALLOCATE(dmbydx(-1:2,-2:3,-2:3))
@@ -804,9 +841,9 @@ FUNCTION T3d(R,T)
    !DO iz=-2,3   
    ! DO iy=-2,3
    !  DO ix=-1,2
-   !   dmbxdx(ix,iy,iz)=0.5_num*(mbx(ix+1,iy,iz)-mbx(ix-1,iy,iz))*odg(1)
-   !   dmbydx(ix,iy,iz)=0.5_num*(mby(ix+1,iy,iz)-mby(ix-1,iy,iz))*odg(1)
-   !   dmbzdx(ix,iy,iz)=0.5_num*(mbz(ix+1,iy,iz)-mbz(ix-1,iy,iz))*odg(1)
+   !   dmbxdx(ix,iy,iz)=0.5_num*(mbx(ix+1,iy,iz)-mbx(ix-1,iy,iz))*grid_spacing_inverse(1)
+   !   dmbydx(ix,iy,iz)=0.5_num*(mby(ix+1,iy,iz)-mby(ix-1,iy,iz))*grid_spacing_inverse(1)
+   !   dmbzdx(ix,iy,iz)=0.5_num*(mbz(ix+1,iy,iz)-mbz(ix-1,iy,iz))*grid_spacing_inverse(1)
    !  ENDDO
    ! ENDDO
    !ENDDO
@@ -818,9 +855,9 @@ FUNCTION T3d(R,T)
    DO iz=-4,5   
     DO iy=-4,5
      DO ix=-2,3
-      dmbxdx(ix,iy,iz)=(-mbx(ix+2,iy,iz)+8.0_num*mbx(ix+1,iy,iz)-8.0_num*mbx(ix-1,iy,iz)+mbx(ix-2,iy,iz))*odg(1)*oneotwelve
-      dmbydx(ix,iy,iz)=(-mby(ix+2,iy,iz)+8.0_num*mby(ix+1,iy,iz)-8.0_num*mby(ix-1,iy,iz)+mby(ix-2,iy,iz))*odg(1)*oneotwelve
-      dmbzdx(ix,iy,iz)=(-mbz(ix+2,iy,iz)+8.0_num*mbz(ix+1,iy,iz)-8.0_num*mbz(ix-1,iy,iz)+mbz(ix-2,iy,iz))*odg(1)*oneotwelve
+      dmbxdx(ix,iy,iz)=(-mbx(ix+2,iy,iz)+8.0_num*mbx(ix+1,iy,iz)-8.0_num*mbx(ix-1,iy,iz)+mbx(ix-2,iy,iz))*grid_spacing_inverse(1)*oneotwelve
+      dmbydx(ix,iy,iz)=(-mby(ix+2,iy,iz)+8.0_num*mby(ix+1,iy,iz)-8.0_num*mby(ix-1,iy,iz)+mby(ix-2,iy,iz))*grid_spacing_inverse(1)*oneotwelve
+      dmbzdx(ix,iy,iz)=(-mbz(ix+2,iy,iz)+8.0_num*mbz(ix+1,iy,iz)-8.0_num*mbz(ix-1,iy,iz)+mbz(ix-2,iy,iz))*grid_spacing_inverse(1)*oneotwelve
      END DO
     END DO
    END DO
@@ -832,9 +869,9 @@ FUNCTION T3d(R,T)
    !DO iz=-2,3   
    ! DO iy=-1,2
    !  DO ix=-2,3
-   !   dmbxdy(ix,iy,iz)=0.5_num*(mbx(ix,iy+1,iz)-mbx(ix,iy-1,iz))*odg(2)
-   !   dmbydy(ix,iy,iz)=0.5_num*(mby(ix,iy+1,iz)-mby(ix,iy-1,iz))*odg(2)
-   !   dmbzdy(ix,iy,iz)=0.5_num*(mbz(ix,iy+1,iz)-mbz(ix,iy-1,iz))*odg(2)
+   !   dmbxdy(ix,iy,iz)=0.5_num*(mbx(ix,iy+1,iz)-mbx(ix,iy-1,iz))*grid_spacing_inverse(2)
+   !   dmbydy(ix,iy,iz)=0.5_num*(mby(ix,iy+1,iz)-mby(ix,iy-1,iz))*grid_spacing_inverse(2)
+   !   dmbzdy(ix,iy,iz)=0.5_num*(mbz(ix,iy+1,iz)-mbz(ix,iy-1,iz))*grid_spacing_inverse(2)
    !  ENDDO
    ! ENDDO
    !ENDDO
@@ -846,9 +883,9 @@ FUNCTION T3d(R,T)
    DO iz=-4,5   
     DO iy=-2,3
      DO ix=-4,5
-      dmbxdy(ix,iy,iz)=(-mbx(ix,iy+2,iz)+8.0_num*mbx(ix,iy+1,iz)-8.0_num*mbx(ix,iy-1,iz)+mbx(ix,iy-2,iz))*odg(2)*oneotwelve
-      dmbydy(ix,iy,iz)=(-mby(ix,iy+2,iz)+8.0_num*mby(ix,iy+1,iz)-8.0_num*mby(ix,iy-1,iz)+mby(ix,iy-2,iz))*odg(2)*oneotwelve
-      dmbzdy(ix,iy,iz)=(-mbz(ix,iy+2,iz)+8.0_num*mbz(ix,iy+1,iz)-8.0_num*mbz(ix,iy-1,iz)+mbz(ix,iy-2,iz))*odg(2)*oneotwelve
+      dmbxdy(ix,iy,iz)=(-mbx(ix,iy+2,iz)+8.0_num*mbx(ix,iy+1,iz)-8.0_num*mbx(ix,iy-1,iz)+mbx(ix,iy-2,iz))*grid_spacing_inverse(2)*oneotwelve
+      dmbydy(ix,iy,iz)=(-mby(ix,iy+2,iz)+8.0_num*mby(ix,iy+1,iz)-8.0_num*mby(ix,iy-1,iz)+mby(ix,iy-2,iz))*grid_spacing_inverse(2)*oneotwelve
+      dmbzdy(ix,iy,iz)=(-mbz(ix,iy+2,iz)+8.0_num*mbz(ix,iy+1,iz)-8.0_num*mbz(ix,iy-1,iz)+mbz(ix,iy-2,iz))*grid_spacing_inverse(2)*oneotwelve
      END DO
     END DO
    END DO
@@ -859,9 +896,9 @@ FUNCTION T3d(R,T)
    !DO iz=-1,2
    ! DO iy=-2,3   
    !  DO ix=-2,3
-   !   dmbxdz(ix,iy,iz)=0.5_num*(mbx(ix,iy,iz+1)-mbx(ix,iy,iz-1))*odg(3)
-   !   dmbydz(ix,iy,iz)=0.5_num*(mby(ix,iy,iz+1)-mby(ix,iy,iz-1))*odg(3)
-   !   dmbzdz(ix,iy,iz)=0.5_num*(mbz(ix,iy,iz+1)-mbz(ix,iy,iz-1))*odg(3)
+   !   dmbxdz(ix,iy,iz)=0.5_num*(mbx(ix,iy,iz+1)-mbx(ix,iy,iz-1))*grid_spacing_inverse(3)
+   !   dmbydz(ix,iy,iz)=0.5_num*(mby(ix,iy,iz+1)-mby(ix,iy,iz-1))*grid_spacing_inverse(3)
+   !   dmbzdz(ix,iy,iz)=0.5_num*(mbz(ix,iy,iz+1)-mbz(ix,iy,iz-1))*grid_spacing_inverse(3)
    !  ENDDO
    ! ENDDO
    !ENDDO
@@ -873,9 +910,9 @@ FUNCTION T3d(R,T)
    DO iz=-2,3
     DO iy=-4,5   
      DO ix=-4,5
-      dmbxdz(ix,iy,iz)=oneotwelve*(-mbx(ix,iy,iz+2)+8.0_num*mbx(ix,iy,iz+1)-8.0_num*mbx(ix,iy,iz-1)+mbx(ix,iy,iz-2))*odg(3)
-      dmbydz(ix,iy,iz)=oneotwelve*(-mby(ix,iy,iz+2)+8.0_num*mby(ix,iy,iz+1)-8.0_num*mby(ix,iy,iz-1)+mby(ix,iy,iz-2))*odg(3)
-      dmbzdz(ix,iy,iz)=oneotwelve*(-mbz(ix,iy,iz+2)+8.0_num*mbz(ix,iy,iz+1)-8.0_num*mbz(ix,iy,iz-1)+mbz(ix,iy,iz-2))*odg(3)
+      dmbxdz(ix,iy,iz)=oneotwelve*(-mbx(ix,iy,iz+2)+8.0_num*mbx(ix,iy,iz+1)-8.0_num*mbx(ix,iy,iz-1)+mbx(ix,iy,iz-2))*grid_spacing_inverse(3)
+      dmbydz(ix,iy,iz)=oneotwelve*(-mby(ix,iy,iz+2)+8.0_num*mby(ix,iy,iz+1)-8.0_num*mby(ix,iy,iz-1)+mby(ix,iy,iz-2))*grid_spacing_inverse(3)
+      dmbzdz(ix,iy,iz)=oneotwelve*(-mbz(ix,iy,iz+2)+8.0_num*mbz(ix,iy,iz+1)-8.0_num*mbz(ix,iy,iz-1)+mbz(ix,iy,iz-2))*grid_spacing_inverse(3)
      ENDDO
     ENDDO
    ENDDO
@@ -886,15 +923,15 @@ FUNCTION T3d(R,T)
    !ALLOCATE(mvx(-1:2,-1:2,-1:2))
    !ALLOCATE(mvy(-1:2,-1:2,-1:2))
    !ALLOCATE(mvz(-1:2,-1:2,-1:2))
-   !mvx=vx(l(1)-1:l(1)+2,l(2)-1:l(2)+2,l(3)-1:l(3)+2)
-   !mvy=vy(l(1)-1:l(1)+2,l(2)-1:l(2)+2,l(3)-1:l(3)+2)
-   !mvz=vz(l(1)-1:l(1)+2,l(2)-1:l(2)+2,l(3)-1:l(3)+2)
+   !mvx=vx(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
+   !mvy=vy(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
+   !mvz=vz(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
    ALLOCATE(mvx(-2:3,-2:3,-2:3))
    ALLOCATE(mvy(-2:3,-2:3,-2:3))
    ALLOCATE(mvz(-2:3,-2:3,-2:3))
-   mvx=vx(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3,l(4)+it)
-   mvy=vy(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3,l(4)+it)
-   mvz=vz(l(1)-2:l(1)+3,l(2)-2:l(2)+3,l(3)-2:l(3)+3,l(4)+it)
+   mvx=vx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
+   mvy=vy(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
+   mvz=vz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
    
    
    ! now calculate temporary currents and also local eta values
@@ -938,39 +975,39 @@ FUNCTION T3d(R,T)
 
    ! now interpolate derivs to correct point:
    !linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)    
-   !dbxdxt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!22
+   !dbxdxt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!22
    dbxdxt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbxdx(0,0,0), dmbxdx(1,0,0), dmbxdx(0,1,0), dmbxdx(1,1,0),&
     dmbxdx(0,0,1), dmbxdx(1,0,1), dmbxdx(0,1,1), dmbxdx(1,1,1))
-   !dbydxt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!23
+   !dbydxt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!23
    dbydxt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbydx(0,0,0), dmbydx(1,0,0), dmbydx(0,1,0), dmbydx(1,1,0),&
     dmbydx(0,0,1), dmbydx(1,0,1), dmbydx(0,1,1), dmbydx(1,1,1))
-   !dbzdxt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!24
+   !dbzdxt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!24
    dbzdxt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbzdx(0,0,0), dmbzdx(1,0,0), dmbzdx(0,1,0), dmbzdx(1,1,0),&
     dmbzdx(0,0,1), dmbzdx(1,0,1), dmbzdx(0,1,1), dmbzdx(1,1,1))
-   !dbxdyt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!25
+   !dbxdyt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!25
    dbxdyt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbxdy(0,0,0), dmbxdy(1,0,0), dmbxdy(0,1,0), dmbxdy(1,1,0),&
     dmbxdy(0,0,1), dmbxdy(1,0,1), dmbxdy(0,1,1), dmbxdy(1,1,1))
-   !dbydyt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!26
+   !dbydyt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!26
    dbydyt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbydy(0,0,0), dmbydy(1,0,0), dmbydy(0,1,0), dmbydy(1,1,0),&
     dmbydy(0,0,1), dmbydy(1,0,1), dmbydy(0,1,1), dmbydy(1,1,1))
-   !dbzdyt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!27
+   !dbzdyt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!27
    dbzdyt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbzdy(0,0,0), dmbzdy(1,0,0), dmbzdy(0,1,0), dmbzdy(1,1,0),&
     dmbzdy(0,0,1), dmbzdy(1,0,1), dmbzdy(0,1,1), dmbzdy(1,1,1))            
-   !dbxdzt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!28
+   !dbxdzt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!28
    dbxdzt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbxdz(0,0,0), dmbxdz(1,0,0), dmbxdz(0,1,0), dmbxdz(1,1,0),&
     dmbxdz(0,0,1), dmbxdz(1,0,1), dmbxdz(0,1,1), dmbxdz(1,1,1))
-   !dbydzt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!29
+   !dbydzt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!29
    dbydzt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbydz(0,0,0), dmbydz(1,0,0), dmbydz(0,1,0), dmbydz(1,1,0),&
     dmbydz(0,0,1), dmbydz(1,0,1), dmbydz(0,1,1), dmbydz(1,1,1))
-   !dbzdzt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!30
+   !dbzdzt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!30
    dbzdzt(it+1)=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmbzdz(0,0,0), dmbzdz(1,0,0), dmbzdz(0,1,0), dmbzdz(1,1,0),&
     dmbzdz(0,0,1), dmbzdz(1,0,1), dmbzdz(0,1,1), dmbzdz(1,1,1))
@@ -987,17 +1024,17 @@ FUNCTION T3d(R,T)
 
    ! interpolate j too at this stage:
    !mjx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!7
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!7
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mjx(0,0,0), mjx(1,0,0), mjx(0,1,0), mjx(1,1,0), &
     mjx(0,0,1), mjx(1,0,1), mjx(0,1,1), mjx(1,1,1))
    jxt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!8
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!8
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mjy(0,0,0), mjy(1,0,0), mjy(0,1,0), mjy(1,1,0), &
     mjy(0,0,1), mjy(1,0,1), mjy(0,1,1), mjy(1,1,1))
    jyt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!9
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!9
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mjz(0,0,0), mjz(1,0,0), mjz(0,1,0), mjz(1,1,0), &
     mjz(0,0,1), mjz(1,0,1), mjz(0,1,1), mjz(1,1,1))
@@ -1042,18 +1079,18 @@ FUNCTION T3d(R,T)
    !DO iz=-1,2   
    ! DO iy=-1,2
    !  DO ix=0,1
-      !dmExdx(ix,iy,iz)=0.5_num*(mEx(ix+1,iy,iz)-mEx(ix-1,iy,iz))*odg(1)
-      !dmEydx(ix,iy,iz)=0.5_num*(mEy(ix+1,iy,iz)-mEy(ix-1,iy,iz))*odg(1)
-      !dmEzdx(ix,iy,iz)=0.5_num*(mEz(ix+1,iy,iz)-mEz(ix-1,iy,iz))*odg(1)
+      !dmExdx(ix,iy,iz)=0.5_num*(mEx(ix+1,iy,iz)-mEx(ix-1,iy,iz))*grid_spacing_inverse(1)
+      !dmEydx(ix,iy,iz)=0.5_num*(mEy(ix+1,iy,iz)-mEy(ix-1,iy,iz))*grid_spacing_inverse(1)
+      !dmEzdx(ix,iy,iz)=0.5_num*(mEz(ix+1,iy,iz)-mEz(ix-1,iy,iz))*grid_spacing_inverse(1)
    ALLOCATE(dmExdx(0:1,-2:3,-2:3))
    ALLOCATE(dmEydx(0:1,-2:3,-2:3))
    ALLOCATE(dmEzdx(0:1,-2:3,-2:3))
    DO iz=-2,3   
     DO iy=-2,3
      DO ix=0,1
-      dmExdx(ix,iy,iz)=oneotwelve*(-mEx(ix+2,iy,iz)+8.0_num*mEx(ix+1,iy,iz)-8.0_num*mEx(ix-1,iy,iz)+mEx(ix-2,iy,iz))*odg(1)
-      dmEydx(ix,iy,iz)=oneotwelve*(-mEy(ix+2,iy,iz)+8.0_num*mEy(ix+1,iy,iz)-8.0_num*mEy(ix-1,iy,iz)+mEy(ix-2,iy,iz))*odg(1)
-      dmEzdx(ix,iy,iz)=oneotwelve*(-mEz(ix+2,iy,iz)+8.0_num*mEz(ix+1,iy,iz)-8.0_num*mEz(ix-1,iy,iz)+mEz(ix-2,iy,iz))*odg(1)
+      dmExdx(ix,iy,iz)=oneotwelve*(-mEx(ix+2,iy,iz)+8.0_num*mEx(ix+1,iy,iz)-8.0_num*mEx(ix-1,iy,iz)+mEx(ix-2,iy,iz))*grid_spacing_inverse(1)
+      dmEydx(ix,iy,iz)=oneotwelve*(-mEy(ix+2,iy,iz)+8.0_num*mEy(ix+1,iy,iz)-8.0_num*mEy(ix-1,iy,iz)+mEy(ix-2,iy,iz))*grid_spacing_inverse(1)
+      dmEzdx(ix,iy,iz)=oneotwelve*(-mEz(ix+2,iy,iz)+8.0_num*mEz(ix+1,iy,iz)-8.0_num*mEz(ix-1,iy,iz)+mEz(ix-2,iy,iz))*grid_spacing_inverse(1)
      ENDDO
     ENDDO
    ENDDO
@@ -1064,18 +1101,18 @@ FUNCTION T3d(R,T)
  !  DO iz=-1,2   
  !   DO iy=0,1
  !    DO ix=-1,2
- !     dmExdy(ix,iy,iz)=0.5_num*(mEx(ix,iy+1,iz)-mEx(ix,iy-1,iz))*odg(2)
- !     dmEydy(ix,iy,iz)=0.5_num*(mEy(ix,iy+1,iz)-mEy(ix,iy-1,iz))*odg(2)
- !     dmEzdy(ix,iy,iz)=0.5_num*(mEz(ix,iy+1,iz)-mEz(ix,iy-1,iz))*odg(2)
+ !     dmExdy(ix,iy,iz)=0.5_num*(mEx(ix,iy+1,iz)-mEx(ix,iy-1,iz))*grid_spacing_inverse(2)
+ !     dmEydy(ix,iy,iz)=0.5_num*(mEy(ix,iy+1,iz)-mEy(ix,iy-1,iz))*grid_spacing_inverse(2)
+ !     dmEzdy(ix,iy,iz)=0.5_num*(mEz(ix,iy+1,iz)-mEz(ix,iy-1,iz))*grid_spacing_inverse(2)
    ALLOCATE(dmExdy(-2:3,0:1,-2:3))
    ALLOCATE(dmEydy(-2:3,0:1,-2:3))
    ALLOCATE(dmEzdy(-2:3,0:1,-2:3))  
    DO iz=-2,3   
     DO iy=0,1
      DO ix=-2,3  
-      dmExdy(ix,iy,iz)=oneotwelve*(-mEx(ix,iy+2,iz)+8.0_num*mEx(ix,iy+1,iz)-8.0_num*mEx(ix,iy-1,iz)+mEx(ix,iy-2,iz))*odg(2)
-      dmEydy(ix,iy,iz)=oneotwelve*(-mEy(ix,iy+2,iz)+8.0_num*mEy(ix,iy+1,iz)-8.0_num*mEy(ix,iy-1,iz)+mEy(ix,iy-2,iz))*odg(2)
-      dmEzdy(ix,iy,iz)=oneotwelve*(-mEz(ix,iy+2,iz)+8.0_num*mEz(ix,iy+1,iz)-8.0_num*mEz(ix,iy-1,iz)+mEz(ix,iy-2,iz))*odg(2)
+      dmExdy(ix,iy,iz)=oneotwelve*(-mEx(ix,iy+2,iz)+8.0_num*mEx(ix,iy+1,iz)-8.0_num*mEx(ix,iy-1,iz)+mEx(ix,iy-2,iz))*grid_spacing_inverse(2)
+      dmEydy(ix,iy,iz)=oneotwelve*(-mEy(ix,iy+2,iz)+8.0_num*mEy(ix,iy+1,iz)-8.0_num*mEy(ix,iy-1,iz)+mEy(ix,iy-2,iz))*grid_spacing_inverse(2)
+      dmEzdy(ix,iy,iz)=oneotwelve*(-mEz(ix,iy+2,iz)+8.0_num*mEz(ix,iy+1,iz)-8.0_num*mEz(ix,iy-1,iz)+mEz(ix,iy-2,iz))*grid_spacing_inverse(2)
      ENDDO
     ENDDO
    ENDDO   
@@ -1086,18 +1123,18 @@ FUNCTION T3d(R,T)
    !DO iz=0,1   
    ! DO iy=-1,2
    !  DO ix=-1,2
-   !   dmExdz(ix,iy,iz)=0.5_num*(mEx(ix,iy,iz+1)-mEx(ix,iy,iz-1))*odg(3)
-   !   dmEydz(ix,iy,iz)=0.5_num*(mEy(ix,iy,iz+1)-mEy(ix,iy,iz-1))*odg(3)
-   !   dmEzdz(ix,iy,iz)=0.5_num*(mEz(ix,iy,iz+1)-mEz(ix,iy,iz-1))*odg(3)
+   !   dmExdz(ix,iy,iz)=0.5_num*(mEx(ix,iy,iz+1)-mEx(ix,iy,iz-1))*grid_spacing_inverse(3)
+   !   dmEydz(ix,iy,iz)=0.5_num*(mEy(ix,iy,iz+1)-mEy(ix,iy,iz-1))*grid_spacing_inverse(3)
+   !   dmEzdz(ix,iy,iz)=0.5_num*(mEz(ix,iy,iz+1)-mEz(ix,iy,iz-1))*grid_spacing_inverse(3)
    ALLOCATE(dmExdz(-2:3,-2:3,0:1))
    ALLOCATE(dmEydz(-2:3,-2:3,0:1))
    ALLOCATE(dmEzdz(-2:3,-2:3,0:1))   
    DO iz=0,1   
     DO iy=-2,3
      DO ix=-2,3
-      dmExdz(ix,iy,iz)=oneotwelve*(-mEx(ix,iy,iz+2)+8.0_num*mEx(ix,iy,iz+1)-8.0_num*mEx(ix,iy,iz-1)+mEx(ix,iy,iz-2))*odg(3)
-      dmEydz(ix,iy,iz)=oneotwelve*(-mEy(ix,iy,iz+2)+8.0_num*mEy(ix,iy,iz+1)-8.0_num*mEy(ix,iy,iz-1)+mEy(ix,iy,iz-2))*odg(3)
-      dmEzdz(ix,iy,iz)=oneotwelve*(-mEz(ix,iy,iz+2)+8.0_num*mEz(ix,iy,iz+1)-8.0_num*mEz(ix,iy,iz-1)+mEz(ix,iy,iz-2))*odg(3)
+      dmExdz(ix,iy,iz)=oneotwelve*(-mEx(ix,iy,iz+2)+8.0_num*mEx(ix,iy,iz+1)-8.0_num*mEx(ix,iy,iz-1)+mEx(ix,iy,iz-2))*grid_spacing_inverse(3)
+      dmEydz(ix,iy,iz)=oneotwelve*(-mEy(ix,iy,iz+2)+8.0_num*mEy(ix,iy,iz+1)-8.0_num*mEy(ix,iy,iz-1)+mEy(ix,iy,iz-2))*grid_spacing_inverse(3)
+      dmEzdz(ix,iy,iz)=oneotwelve*(-mEz(ix,iy,iz+2)+8.0_num*mEz(ix,iy,iz+1)-8.0_num*mEz(ix,iy,iz-1)+mEz(ix,iy,iz-2))*grid_spacing_inverse(3)
      ENDDO
     ENDDO
    ENDDO
@@ -1105,47 +1142,47 @@ FUNCTION T3d(R,T)
    !dmExdx(1:2,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
    !linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
          
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!10
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!10
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmExdx(0,0,0), dmExdx(1,0,0), dmExdx(0,1,0), dmExdx(1,1,0),&
     dmExdx(0,0,1), dmExdx(1,0,1), dmExdx(0,1,1), dmExdx(1,1,1))
    dExdxt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!11
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!11
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEydx(0,0,0), dmEydx(1,0,0), dmEydx(0,1,0), dmEydx(1,1,0),&
     dmEydx(0,0,1), dmEydx(1,0,1), dmEydx(0,1,1), dmEydx(1,1,1))
    dEydxt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!12
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!12
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEzdx(0,0,0), dmEzdx(1,0,0), dmEzdx(0,1,0), dmEzdx(1,1,0),&
     dmEzdx(0,0,1), dmEzdx(1,0,1), dmEzdx(0,1,1), dmEzdx(1,1,1))
    dEzdxt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!13
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!13
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmExdy(0,0,0), dmExdy(1,0,0), dmExdy(0,1,0), dmExdy(1,1,0),&
     dmExdy(0,0,1), dmExdy(1,0,1), dmExdy(0,1,1), dmExdy(1,1,1))
    dExdyt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!14
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!14
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEydy(0,0,0), dmEydy(1,0,0), dmEydy(0,1,0), dmEydy(1,1,0),&
     dmEydy(0,0,1), dmEydy(1,0,1), dmEydy(0,1,1), dmEydy(1,1,1))
    dEydyt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!15
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!15
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEzdy(0,0,0), dmEzdy(1,0,0), dmEzdy(0,1,0), dmEzdy(1,1,0),&
     dmEzdy(0,0,1), dmEzdy(1,0,1), dmEzdy(0,1,1), dmEzdy(1,1,1))
    dEzdyt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!16
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!16
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmExdz(0,0,0), dmExdz(1,0,0), dmExdz(0,1,0), dmExdz(1,1,0),&
     dmExdz(0,0,1), dmExdz(1,0,1), dmExdz(0,1,1), dmExdz(1,1,1))
    dExdzt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!17
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!17
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEydz(0,0,0), dmEydz(1,0,0), dmEydz(0,1,0), dmEydz(1,1,0),&
     dmEydz(0,0,1), dmEydz(1,0,1), dmEydz(0,1,1), dmEydz(1,1,1))
    dEydzt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!18
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!18
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     dmEzdz(0,0,0), dmEzdz(1,0,0), dmEzdz(0,1,0), dmEzdz(1,1,0),&
     dmEzdz(0,0,1), dmEzdz(1,0,1), dmEzdz(0,1,1), dmEzdz(1,1,1))
@@ -1164,17 +1201,17 @@ FUNCTION T3d(R,T)
    !mEx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
    !linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
          
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!19
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!19
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mEx(0,0,0), mEx(1,0,0), mEx(0,1,0), mEx(1,1,0),&
     mEx(0,0,1), mEx(1,0,1), mEx(0,1,1), mEx(1,1,1))
    Ext(it+1)=temp 
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!20
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!20
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mEy(0,0,0), mEy(1,0,0), mEy(0,1,0), mEy(1,1,0),&
     mEy(0,0,1), mEy(1,0,1), mEy(0,1,1), mEy(1,1,1))
    Eyt(it+1)=temp
-   !temp=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!21
+   !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!21
    temp=linterp3d(coffset(1),coffset(2),coffset(3), &
     mEz(0,0,0), mEz(1,0,0), mEz(0,1,0), mEz(1,1,0),&
     mEz(0,0,1), mEz(1,0,1), mEz(0,1,1), mEz(1,1,1))
@@ -1188,15 +1225,15 @@ FUNCTION T3d(R,T)
    
    !we can try and sort other variables later (e.g. density/temp) when we're happy
              
-   !rhot=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!31
-   !rho(l(1),l(2),l(3)),rho(l(1)+1,l(2),l(3)),rho(l(1),l(2)+1,l(3)),&
-   !rho(l(1)+1,l(2)+1,l(3)),rho(l(1),l(2),l(3)+1),rho(l(1)+1,l(2),l(3)+1), &
-   !rho(l(1),l(2)+1,l(3)+1),rho(l(1)+1,l(2)+1,l(3)+1))
+   !rhot=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!31
+   !rho(part_grid_index(1),part_grid_index(2),part_grid_index(3)),rho(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)),rho(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)),&
+   !rho(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)),rho(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1),rho(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1), &
+   !rho(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1),rho(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1))
    
-   !tempt=linterp3d(R(1)-myx(l(1)),R(2)-myy(l(2)),R(3)-myz(l(3)),&	!31
-   !temperature(l(1),l(2),l(3)),temperature(l(1)+1,l(2),l(3)),temperature(l(1),l(2)+1,l(3)),&
-   !temperature(l(1)+1,l(2)+1,l(3)),temperature(l(1),l(2),l(3)+1),temperature(l(1)+1,l(2),l(3)+1), &
-   !temperature(l(1),l(2)+1,l(3)+1),temperature(l(1)+1,l(2)+1,l(3)+1))
+   !tempt=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!31
+   !temperature(part_grid_index(1),part_grid_index(2),part_grid_index(3)),temperature(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)),temperature(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)),&
+   !temperature(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)),temperature(part_grid_index(1),part_grid_index(2),part_grid_index(3)+1),temperature(part_grid_index(1)+1,part_grid_index(2),part_grid_index(3)+1), &
+   !temperature(part_grid_index(1),part_grid_index(2)+1,part_grid_index(3)+1),temperature(part_grid_index(1)+1,part_grid_index(2)+1,part_grid_index(3)+1))
 
    ! its possible to run lare3d in real units - lets make sure things are normalised if this happens
    IF (.not. lare_norm) THEN
@@ -1235,42 +1272,42 @@ FUNCTION T3d(R,T)
 
    IF (nframes.gt.1) THEN
 
-    T3d(1)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),bxt(1),bxt(2))
-    T3d(2)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),byt(1),byt(2))
-    T3d(3)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),bzt(1),bzt(2))
-    T3d(4)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),vxt(1),vxt(2))
-    T3d(5)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),vyt(1),vyt(2))
-    T3d(6)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),vzt(1),vzt(2))
-    T3d(7)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),Ext(1),Ext(2))
-    T3d(8)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),Eyt(1),Eyt(2))
-    T3d(9)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),Ezt(1),Ezt(2))   
-    T3d(10)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),jxt(1),jxt(2))
-    T3d(11)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),jyt(1),jyt(2))
-    T3d(12)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),jzt(1),jzt(2))
-    T3d(13)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbxdxt(1),dbxdxt(2))
-    T3d(14)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbydxt(1),dbydxt(2))
-    T3d(15)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbzdxt(1),dbzdxt(2))
-    T3d(16)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbxdyt(1),dbxdyt(2))
-    T3d(17)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbydyt(1),dbydyt(2))
-    T3d(18)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbzdyt(1),dbzdyt(2))
-    T3d(19)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbxdzt(1),dbxdzt(2))
-    T3d(20)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbydzt(1),dbydzt(2))
-    T3d(21)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dbzdzt(1),dbzdzt(2))
-    T3d(22)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dExdxt(1),dExdxt(2))
-    T3d(23)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEydxt(1),dEydxt(2))
-    T3d(24)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEzdxt(1),dEzdxt(2))
-    T3d(25)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dExdyt(1),dExdyt(2))
-    T3d(26)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEydyt(1),dEydyt(2))
-    T3d(27)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEzdyt(1),dEzdyt(2))
-    T3d(28)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dExdzt(1),dExdzt(2))
-    T3d(29)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEydzt(1),dEydzt(2))
-    T3d(30)=linterp1d((T-ltimes(l(4)))*odgt(l(4)),dEzdzt(1),dEzdzt(2))
-    T3d(31)=(bxt(2)-bxt(1))*odgt(l(4))
-    T3d(32)=(byt(2)-byt(1))*odgt(l(4))
-    T3d(33)=(bzt(2)-bzt(1))*odgt(l(4))
-    T3d(34)=(Ext(2)-Ext(1))*odgt(l(4))	! as we have multiple snapshots, we can calculate time derivs finally!
-    T3d(35)=(Eyt(2)-Eyt(1))*odgt(l(4))
-    T3d(36)=(Ezt(2)-Ezt(1))*odgt(l(4))
+    T3d(1)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),bxt(1),bxt(2))
+    T3d(2)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),byt(1),byt(2))
+    T3d(3)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),bzt(1),bzt(2))
+    T3d(4)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),vxt(1),vxt(2))
+    T3d(5)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),vyt(1),vyt(2))
+    T3d(6)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),vzt(1),vzt(2))
+    T3d(7)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),Ext(1),Ext(2))
+    T3d(8)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),Eyt(1),Eyt(2))
+    T3d(9)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),Ezt(1),Ezt(2))   
+    T3d(10)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),jxt(1),jxt(2))
+    T3d(11)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),jyt(1),jyt(2))
+    T3d(12)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),jzt(1),jzt(2))
+    T3d(13)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbxdxt(1),dbxdxt(2))
+    T3d(14)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbydxt(1),dbydxt(2))
+    T3d(15)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbzdxt(1),dbzdxt(2))
+    T3d(16)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbxdyt(1),dbxdyt(2))
+    T3d(17)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbydyt(1),dbydyt(2))
+    T3d(18)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbzdyt(1),dbzdyt(2))
+    T3d(19)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbxdzt(1),dbxdzt(2))
+    T3d(20)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbydzt(1),dbydzt(2))
+    T3d(21)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dbzdzt(1),dbzdzt(2))
+    T3d(22)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dExdxt(1),dExdxt(2))
+    T3d(23)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEydxt(1),dEydxt(2))
+    T3d(24)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEzdxt(1),dEzdxt(2))
+    T3d(25)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dExdyt(1),dExdyt(2))
+    T3d(26)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEydyt(1),dEydyt(2))
+    T3d(27)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEzdyt(1),dEzdyt(2))
+    T3d(28)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dExdzt(1),dExdzt(2))
+    T3d(29)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEydzt(1),dEydzt(2))
+    T3d(30)=linterp1d((T-ltimes(part_grid_index(4)))*odgt(part_grid_index(4)),dEzdzt(1),dEzdzt(2))
+    T3d(31)=(bxt(2)-bxt(1))*odgt(part_grid_index(4))
+    T3d(32)=(byt(2)-byt(1))*odgt(part_grid_index(4))
+    T3d(33)=(bzt(2)-bzt(1))*odgt(part_grid_index(4))
+    T3d(34)=(Ext(2)-Ext(1))*odgt(part_grid_index(4))	! as we have multiple snapshots, we can calculate time derivs finally!
+    T3d(35)=(Eyt(2)-Eyt(1))*odgt(part_grid_index(4))
+    T3d(36)=(Ezt(2)-Ezt(1))*odgt(part_grid_index(4))
     DEALLOCATE(dgt,odgt)
    ELSE
    

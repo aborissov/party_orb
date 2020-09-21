@@ -40,19 +40,20 @@ SUBROUTINE LAREFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
    iquants=-999.99_num
   ENDIF
   
+  ! ALEXEI: maybe restructure this so that we don't need to check every time we
+  ! call fields whether we're doing the 2d or 3d version
   IF ((str_cmp(FMOD, "L3D")).OR.(str_cmp(FMOD, "l3d"))) THEN
    IF ((R(3).lt.myz(4)).OR.(R(3).ge.myz(nz-4))) THEN
     PRINT*, 'outside z bounds, returning'
-    iquants=-999.99_num
+    call abort
    ELSE 
     iquants=T3d(R,T)
    ENDIF
   ELSE IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN
    iquants=T2d(R,T)
-  ELSE 
-    print*, 'are you sure about this?' 
   ENDIF
   ! compare array against itself for NANs         
+  ! ALEXEI: move this to debugging checks
   IF (ALL(iquants.eq.iquants)) THEN
   !everything is fine
   ELSE

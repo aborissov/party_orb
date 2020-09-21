@@ -93,11 +93,6 @@ subroutine write_particle_data(file_id, offset, write_size, &
   ! Debugging
   integer :: i
 
-  ! ALEXEI: check that we get the right data handed over
-  do i = 1, write_size
-    print *, data_v_par(1, i)
-  end do
- 
   ! Reopen and write to the individual datasets
   if (present(data_R)) then
     call write_array(file_id, 'R____', data_R, offset, write_size, 1)
