@@ -237,13 +237,18 @@ FUNCTION T2d(R,T)
    REAL(num)					:: temp,  modj
    REAL(num), DIMENSION(2)			:: grid_spacing, grid_spacing_inverse, coffset
    REAL(num), DIMENSION(:), ALLOCATABLE		:: dgt, odgt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt
-   REAL(num), DIMENSION(:), ALLOCATABLE		:: dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt
-   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz
-   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbydx,dmbydy,dmbzdx,dmbzdy
-   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: dmExdx,dmExdy,dmEydx,dmEydy,dmEzdx,dmEzdy
-   REAL(num), DIMENSION(:, :), ALLOCATABLE	:: meta
+   REAL(num), DIMENSION(2)		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
+   REAL(num), DIMENSION(2)		:: dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt
+   REAL(num), DIMENSION(2)		:: dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt
+   REAL(num), DIMENSION(-4:5, -4:5)	:: mbx, mby, mbz 
+   REAL(num), DIMENSION(-2:3, -2:3)	:: mEx, mEy, mEz 
+   REAL(num), DIMENSION(-2:3, -2:3)	:: mjx, mjy, mjz 
+   REAL(num), DIMENSION(-2:3, -2:3)	:: mvx, mvy, mvz
+   REAL(num), DIMENSION(-2:3, -4:5)	:: dmbxdx,dmbydx,dmbzdx
+   REAL(num), DIMENSION(-4:5, -2:3)	:: dmbxdy,dmbydy,dmbzdy
+   REAL(num), DIMENSION(0:1, -2:3)	:: dmExdx,dmEydx,dmEzdx
+   REAL(num), DIMENSION(-2:3, 0:1)	:: dmExdy,dmEydy,dmEzdy
+   REAL(num), DIMENSION(-2:3, -2:3)	:: meta
    INTEGER, DIMENSION(3) 			:: part_grid_index		! set at value it could never reach!
    INTEGER, DIMENSION(3) 			:: part_grid_index_check		! ALEXEI: debugging!
    INTEGER					:: jjx, jjy, jjz,jjt, rpt
@@ -312,16 +317,9 @@ FUNCTION T2d(R,T)
     ENDIF
    ENDDO
    rpt=1
-   ALLOCATE(bxt(2), byt(2), bzt(2),vxt(2), vyt(2), vzt(2), Ext(2), Eyt(2), Ezt(2), jxt(2), jyt(2), jzt(2))
-   ALLOCATE(dbxdxt(2),dbxdyt(2),dbydxt(2),dbydyt(2),dbzdxt(2),dbzdyt(2))
-   ALLOCATE(dExdxt(2),dExdyt(2),dEydxt(2),dEydyt(2),dEzdxt(2),dEzdyt(2))
   ELSE
    part_grid_index(3)=1
    rpt=0
-   ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1))
-   ALLOCATE(dbxdxt(1),dbxdyt(1),dbydxt(1),dbydyt(1),dbzdxt(1),dbzdyt(1))
-   ALLOCATE(dExdxt(1),dExdyt(1),dEydxt(1),dEydyt(1),dEzdxt(1),dEzdyt(1))
-  !what happens if there is one frame to work with?
   ENDIF 
 
   IF (minval(part_grid_index).le.0) THEN
@@ -332,17 +330,13 @@ FUNCTION T2d(R,T)
    print*, R
    STOP
   ENDIF
-  
 
-
-!  print*, part_grid_index(2)
    coffset=(/(R(1)-myx(part_grid_index(1)))*grid_spacing_inverse(1),(R(2)-myy(part_grid_index(2)))*grid_spacing_inverse(2)/)
    
    ! --STEP TWO-- !
    ! begin interpolation of basic variables we already have, e.g. bx, by, bz, vx, vy, vz
        
   DO it=0,rpt	! NEED TO REPEAT FOR INTERPOLATION BETWEEN FRAMES, JT DEC 2015
-  !(dx,dy,f00,f10,f01,f11)
    temp=linterp2d(coffset(1),coffset(2), &
    bx(part_grid_index(1),part_grid_index(2),1,part_grid_index(3)+it),bx(part_grid_index(1)+1,part_grid_index(2),1,part_grid_index(3)+it),bx(part_grid_index(1),part_grid_index(2)+1,1,part_grid_index(3)+it),bx(part_grid_index(1)+1,part_grid_index(2)+1,1,part_grid_index(3)+it))
    bxt(it+1)=temp		!1
@@ -379,77 +373,50 @@ FUNCTION T2d(R,T)
    ! JT OCT2014: commented out O(h) derivs, and insert O(h^2)
    
    ! begin with temporary B arrays:
-   ALLOCATE(mbx(-4:5,-4:5))
-   ALLOCATE(mby(-4:5,-4:5))
-   ALLOCATE(mbz(-4:5,-4:5))
-
    mbx=bx(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
    mby=by(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
    mbz=bz(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,1,part_grid_index(3)+it)
 
 
    ! calculate x-derivs first..
-   ALLOCATE(dmbxdx(-2:3,-4:5))
-   ALLOCATE(dmbydx(-2:3,-4:5))
-   ALLOCATE(dmbzdx(-2:3,-4:5))
-   
-    DO iy=-4,5
-     DO ix=-2,3
-      dmbxdx(ix,iy)=(-mbx(ix+2,iy)+8.0_num*mbx(ix+1,iy)-8.0_num*mbx(ix-1,iy)+mbx(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
-      dmbydx(ix,iy)=(-mby(ix+2,iy)+8.0_num*mby(ix+1,iy)-8.0_num*mby(ix-1,iy)+mby(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
-      dmbzdx(ix,iy)=(-mbz(ix+2,iy)+8.0_num*mbz(ix+1,iy)-8.0_num*mbz(ix-1,iy)+mbz(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
-     END DO
+   DO iy=-4,5
+    DO ix=-2,3
+     dmbxdx(ix,iy)=(-mbx(ix+2,iy)+8.0_num*mbx(ix+1,iy)-8.0_num*mbx(ix-1,iy)+mbx(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
+     dmbydx(ix,iy)=(-mby(ix+2,iy)+8.0_num*mby(ix+1,iy)-8.0_num*mby(ix-1,iy)+mby(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
+     dmbzdx(ix,iy)=(-mbz(ix+2,iy)+8.0_num*mbz(ix+1,iy)-8.0_num*mbz(ix-1,iy)+mbz(ix-2,iy))*grid_spacing_inverse(1)*oneotwelve
     END DO
+   END DO
 
    
    ! ..followed by y-derivs..
-   ALLOCATE(dmbxdy(-4:5,-2:3))
-   ALLOCATE(dmbydy(-4:5,-2:3))
-   ALLOCATE(dmbzdy(-4:5,-2:3))
- 
-    DO iy=-2,3
-     DO ix=-4,5
-      dmbxdy(ix,iy)=(-mbx(ix,iy+2)+8.0_num*mbx(ix,iy+1)-8.0_num*mbx(ix,iy-1)+mbx(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
-      dmbydy(ix,iy)=(-mby(ix,iy+2)+8.0_num*mby(ix,iy+1)-8.0_num*mby(ix,iy-1)+mby(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
-      dmbzdy(ix,iy)=(-mbz(ix,iy+2)+8.0_num*mbz(ix,iy+1)-8.0_num*mbz(ix,iy-1)+mbz(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
-     END DO
+   DO iy=-2,3
+    DO ix=-4,5
+     dmbxdy(ix,iy)=(-mbx(ix,iy+2)+8.0_num*mbx(ix,iy+1)-8.0_num*mbx(ix,iy-1)+mbx(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
+     dmbydy(ix,iy)=(-mby(ix,iy+2)+8.0_num*mby(ix,iy+1)-8.0_num*mby(ix,iy-1)+mby(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
+     dmbzdy(ix,iy)=(-mbz(ix,iy+2)+8.0_num*mbz(ix,iy+1)-8.0_num*mbz(ix,iy-1)+mbz(ix,iy-2))*grid_spacing_inverse(2)*oneotwelve
     END DO
-
-   ! .. and finally z derivs (EXCEPT WE DON'T HAVE ANY!)
+   END DO
 
    ! NB the arrays are odd shapes depending on deriv direction but the target cell remains at [0:1,0:1,0:1]
    ! also need temporary velocity arrays, in order to calc E=-etaJ+vxB
 
-   ALLOCATE(mvx(-2:3,-2:3))
-   ALLOCATE(mvy(-2:3,-2:3))
-   ALLOCATE(mvz(-2:3,-2:3))
    mvx=vx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
    mvy=vy(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
    mvz=vz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,1,part_grid_index(3)+it)
    
    
    ! now calculate temporary currents and also local eta values
-
-   ALLOCATE(mjx(-2:3,-2:3))
-   ALLOCATE(mjy(-2:3,-2:3))
-   ALLOCATE(mjz(-2:3,-2:3))
-   ALLOCATE(mEx(-2:3,-2:3))
-   ALLOCATE(mEy(-2:3,-2:3))
-   ALLOCATE(mEz(-2:3,-2:3))
-   ALLOCATE(meta(-2:3,-2:3))
-   
-   
-    DO iy=-2,3
-     DO ix=-2,3
-      mjx(ix,iy)=dmbzdy(ix,iy)!-dmbydz(ix,iy,iz)
-      mjy(ix,iy)=-dmbzdx(ix,iy)!+dmbxdz(ix,iy,iz)
-      mjz(ix,iy)=dmbydx(ix,iy)-dmbxdy(ix,iy)
-      modj=sqrt(mjx(ix,iy)*mjx(ix,iy)+mjy(ix,iy)*mjy(ix,iy)+mjz(ix,iy)*mjz(ix,iy))
-      meta(ix,iy)=smoothstep(modj, jcrit, rwidth)*eta+etabkg          
-      ! ALEXEI: original implementation. remove when happy with smoothstep
-      !meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
-     END DO
+   DO iy=-2,3
+    DO ix=-2,3
+     mjx(ix,iy)=dmbzdy(ix,iy)!-dmbydz(ix,iy,iz)
+     mjy(ix,iy)=-dmbzdx(ix,iy)!+dmbxdz(ix,iy,iz)
+     mjz(ix,iy)=dmbydx(ix,iy)-dmbxdy(ix,iy)
+     modj=sqrt(mjx(ix,iy)*mjx(ix,iy)+mjy(ix,iy)*mjy(ix,iy)+mjz(ix,iy)*mjz(ix,iy))
+     meta(ix,iy)=smoothstep(modj, jcrit, rwidth)*eta+etabkg          
+     ! ALEXEI: original implementation. remove when happy with smoothstep
+     !meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
     END DO
+   END DO
 
 
    ! now interpolate derivs to correct point:  
@@ -466,14 +433,6 @@ FUNCTION T2d(R,T)
    dbzdyt(it+1)=linterp2d(coffset(1),coffset(2), &
     dmbzdy(0,0), dmbzdy(1,0), dmbzdy(0,1), dmbzdy(1,1)) ! 12            
    
-   DEALLOCATE(dmbxdx)
-   DEALLOCATE(dmbydx)
-   DEALLOCATE(dmbzdx)
-   DEALLOCATE(dmbxdy)
-   DEALLOCATE(dmbydy)
-   DEALLOCATE(dmbzdy)
-
-
    ! interpolate j too at this stage:
    !mjx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
    jxt(it+1)=linterp2d(coffset(1),coffset(2), &
@@ -493,48 +452,25 @@ FUNCTION T2d(R,T)
      ENDDO
     ENDDO
 
-      
-   
-   DEALLOCATE(mvx)
-   DEALLOCATE(mvy)
-   DEALLOCATE(mvz)
-   DEALLOCATE(mbx)
-   DEALLOCATE(mby)
-   DEALLOCATE(mbz)
-   DEALLOCATE(mjx)
-   DEALLOCATE(mjy)
-   DEALLOCATE(mjz)    
-   DEALLOCATE(meta)
-   
    ! --STEP FIVE-- !
    ! finally, calculate derivatives of electric field:
    
-   ALLOCATE(dmExdx(0:1,-2:3))
-   ALLOCATE(dmEydx(0:1,-2:3))
-   ALLOCATE(dmEzdx(0:1,-2:3))  
-    DO iy=-2,3
-     DO ix=0,1
-      dmExdx(ix,iy)=oneotwelve*(-mEx(ix+2,iy)+8.0_num*mEx(ix+1,iy)-8.0_num*mEx(ix-1,iy)+mEx(ix-2,iy))*grid_spacing_inverse(1)
-      dmEydx(ix,iy)=oneotwelve*(-mEy(ix+2,iy)+8.0_num*mEy(ix+1,iy)-8.0_num*mEy(ix-1,iy)+mEy(ix-2,iy))*grid_spacing_inverse(1)
-      dmEzdx(ix,iy)=oneotwelve*(-mEz(ix+2,iy)+8.0_num*mEz(ix+1,iy)-8.0_num*mEz(ix-1,iy)+mEz(ix-2,iy))*grid_spacing_inverse(1)
-     ENDDO
+   DO iy=-2,3
+    DO ix=0,1
+     dmExdx(ix,iy)=oneotwelve*(-mEx(ix+2,iy)+8.0_num*mEx(ix+1,iy)-8.0_num*mEx(ix-1,iy)+mEx(ix-2,iy))*grid_spacing_inverse(1)
+     dmEydx(ix,iy)=oneotwelve*(-mEy(ix+2,iy)+8.0_num*mEy(ix+1,iy)-8.0_num*mEy(ix-1,iy)+mEy(ix-2,iy))*grid_spacing_inverse(1)
+     dmEzdx(ix,iy)=oneotwelve*(-mEz(ix+2,iy)+8.0_num*mEz(ix+1,iy)-8.0_num*mEz(ix-1,iy)+mEz(ix-2,iy))*grid_spacing_inverse(1)
     ENDDO
+   ENDDO
 
+   DO iy=0,1
+    DO ix=-2,3  
+     dmExdy(ix,iy)=oneotwelve*(-mEx(ix,iy+2)+8.0_num*mEx(ix,iy+1)-8.0_num*mEx(ix,iy-1)+mEx(ix,iy-2))*grid_spacing_inverse(2)
+     dmEydy(ix,iy)=oneotwelve*(-mEy(ix,iy+2)+8.0_num*mEy(ix,iy+1)-8.0_num*mEy(ix,iy-1)+mEy(ix,iy-2))*grid_spacing_inverse(2)
+     dmEzdy(ix,iy)=oneotwelve*(-mEz(ix,iy+2)+8.0_num*mEz(ix,iy+1)-8.0_num*mEz(ix,iy-1)+mEz(ix,iy-2))*grid_spacing_inverse(2)
+    ENDDO
+   ENDDO  
    
-
-   ALLOCATE(dmExdy(-2:3,0:1))
-   ALLOCATE(dmEydy(-2:3,0:1))
-   ALLOCATE(dmEzdy(-2:3,0:1))   
-    DO iy=0,1
-     DO ix=-2,3  
-      dmExdy(ix,iy)=oneotwelve*(-mEx(ix,iy+2)+8.0_num*mEx(ix,iy+1)-8.0_num*mEx(ix,iy-1)+mEx(ix,iy-2))*grid_spacing_inverse(2)
-      dmEydy(ix,iy)=oneotwelve*(-mEy(ix,iy+2)+8.0_num*mEy(ix,iy+1)-8.0_num*mEy(ix,iy-1)+mEy(ix,iy-2))*grid_spacing_inverse(2)
-      dmEzdy(ix,iy)=oneotwelve*(-mEz(ix,iy+2)+8.0_num*mEz(ix,iy+1)-8.0_num*mEz(ix,iy-1)+mEz(ix,iy-2))*grid_spacing_inverse(2)
-     ENDDO
-    ENDDO  
-   
-   
- 
    dExdxt(it+1)=linterp2d(coffset(1),coffset(2), &
     dmExdx(0,0), dmExdx(1,0), dmExdx(0,1), dmExdx(1,1))
    dEydxt(it+1)=linterp2d(coffset(1),coffset(2), &
@@ -548,15 +484,6 @@ FUNCTION T2d(R,T)
    dEzdyt(it+1)=linterp2d(coffset(1),coffset(2), &
     dmEzdy(0,0), dmEzdy(1,0), dmEzdy(0,1), dmEzdy(1,1))
 
-   
-   DEALLOCATE(dmExdx)
-   DEALLOCATE(dmEydx)
-   DEALLOCATE(dmEzdx)
-   DEALLOCATE(dmExdy)
-   DEALLOCATE(dmEydy)
-   DEALLOCATE(dmEzdy)
-
-
    Ext(it+1)=linterp2d(coffset(1),coffset(2), &
     mEx(0,0), mEx(1,0), mEx(0,1), mEx(1,1))
    Eyt(it+1)=linterp2d(coffset(1),coffset(2), &
@@ -564,15 +491,10 @@ FUNCTION T2d(R,T)
    Ezt(it+1)=linterp2d(coffset(1),coffset(2), &
     mEz(0,0), mEz(1,0), mEz(0,1), mEz(1,1))
     
-   DEALLOCATE(mEx)
-   DEALLOCATE(mEy)
-   DEALLOCATE(mEz)
-   
   END DO
 
-
-   ! its possible to run lare3d in real units - lets make sure things are normalised if this happens
-   IF (.not. lare_norm) THEN
+  ! its possible to run lare3d in real units - lets make sure things are normalised if this happens
+  IF (.not. lare_norm) THEN
     bxt=bxt/bscl
     byt=byt/bscl
     bzt=bzt/bscl
@@ -597,10 +519,10 @@ FUNCTION T2d(R,T)
     dExdyt=dExdyt/Escl*lscl
     dEydyt=dEydyt/Escl*lscl
     dEzdyt=dEzdyt/Escl*lscl
-   ENDIF
+  ENDIF
 
 
-   IF (nframes.gt.1) THEN
+  IF (nframes.gt.1) THEN
 
     T2d(1)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),bxt(1),bxt(2))
     T2d(2)=linterp1d((T-ltimes(part_grid_index(3)))*odgt(part_grid_index(3)),byt(1),byt(2))
@@ -640,9 +562,9 @@ FUNCTION T2d(R,T)
     T2d(36)=(Ezt(2)-Ezt(1))*odgt(part_grid_index(3))
     
     DEALLOCATE(dgt,odgt)
-   
-   ELSE
-   
+  
+  ELSE
+  
     T2d(1)=bxt(1)
     T2d(2)=byt(1)
     T2d(3)=bzt(1)
@@ -674,14 +596,9 @@ FUNCTION T2d(R,T)
     T2d(29)=0.0_num
     T2d(30)=0.0_num
     T2d(31:36)=0.0_num
-   ENDIF
-   
-   DEALLOCATE(bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt)
-   DEALLOCATE(dbxdxt,dbxdyt,dbydxt,dbydyt,dbzdxt,dbzdyt)
-   DEALLOCATE(dExdxt,dExdyt,dEydxt,dEydyt,dEzdxt,dEzdyt)
-   !DEALLOCATE(dgt,odgt)
-
-   RETURN
+  ENDIF
+  
+  RETURN
 
 
 END FUNCTION T2d
