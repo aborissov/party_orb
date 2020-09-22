@@ -39,6 +39,9 @@ subroutine init_particle_io(particle_id, n_fields, file_id, dset_ids, &
   integer(hsize_t)                          :: offset, count, space_dims
   integer(hid_t)                            :: data_type 
 
+  ! ALEXEI: Don't do anything here (for profiling)
+  !return
+
   call h5open_f(hdferr)
   call check_hdf_error(hdferr, 'initialising hdf5')
 
@@ -92,6 +95,9 @@ subroutine write_particle_data(file_id, offset, write_size, &
 
   ! Debugging
   integer :: i
+
+  ! ALEXEI: Don't do anything here (for profiling)
+  !return
 
   ! Reopen and write to the individual datasets
   if (present(data_R)) then
@@ -167,6 +173,9 @@ subroutine close_file(file_id, dset_ids, offset, write_size, data_R, data_v_par)
   integer :: offset
   real(num), dimension(3, write_size), optional :: data_R
   real(num), dimension(1, write_size), optional :: data_v_par
+
+  ! ALEXEI: Don't do anything here (for profiling)
+  !return
 
   ! Write remaining data
   call write_particle_data(file_id, offset, write_size, data_R, data_v_par)

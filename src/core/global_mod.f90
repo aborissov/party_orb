@@ -27,7 +27,7 @@ MODULE global
  INTEGER 			:: frame 
  
 !JT DEBUGGING SWITCHES:
- LOGICAL, PARAMETER		:: writervs=.TRUE., writesum=.FALSE.			! ARE WE WRITING? (ALWAYS TRUE!) 
+ LOGICAL, PARAMETER		:: writervs=.FALSE., writesum=.FALSE.			! ARE WE WRITING? (ALWAYS TRUE!) 
  LOGICAL, PARAMETER		:: JTo=.FALSE., JTo2=.FALSE., JTo3=.FALSE., JTO4=.FALSE.	! various debugging switches (2&3 output every NSTP)
  LOGICAL, PARAMETER		:: FIELDDUMP=.FALSE.					! switch to dump the lare OR NLFFF fields to unformatted data files.
  LOGICAL, PARAMETER		:: everystepswitch=.FALSE.				! dumps EVERY NSTP to each particle data file.
@@ -136,7 +136,7 @@ MODULE global
  !REAL(num), DIMENSION(2), PARAMETER	:: ze=(/0.25_num,19.75_num/),ye=(/-7.5_num,7.5_num/),xe=(/-7.5_num,7.5_num/)	!etab-5 
  !REAL(num), DIMENSION(2), PARAMETER	:: ze=(/2.0_num,18.0_num/),ye=(/-8.5_num,8.5_num/),xe=(/-8.5_num,8.5_num/)	!etab-5
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=25.0_num
- REAL(num), PARAMETER			:: eta=7.2527096E13*1e-4/Lscl/Vscl, jcrit=0.8_num, rwidth=0.05_num, etabkg=0.00001_num
+ REAL(num), PARAMETER			:: eta=7.2527096E13*1e-4/Lscl/Vscl, jcrit=0.8_num, rwidth=0.025_num, etabkg=0.00001_num
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=0.8_num, rwidth=0.05_num, etabkg=0.00001_num		!etab-5
  !REAL(num), PARAMETER			:: eta=0.001_num, jcrit=20.0_num, rwidth=0.5_num
 

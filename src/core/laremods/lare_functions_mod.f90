@@ -5,12 +5,38 @@ USE GLOBAL
 
  IMPLICIT NONE
 
-  PRIVATE
+  PRIVATE :: smoothstep, clamp ! Alternative to tanh, see wikipedia article
   PUBLIC :: stagger_bx, stagger_by, stagger_bz, stagger_bx_2d, stagger_by_2d
   PUBLIC :: stagger_j
   PUBLIC :: linterp3d, linterp2d, linterp1d, T2d, t3d, check_dims!,str_cmp
 
 CONTAINS
+
+function smoothstep(x, centre, half_width) 
+  real(num), intent(in) :: x, centre, half_width
+  real(num) :: scaled_x, edge0, edge1, smoothstep
+
+  edge0 = centre - half_width
+  edge1 = centre + half_width
+  scaled_x = clamp((x - edge0) / (edge1 - edge0), 0.0_num, 1.0_num)
+  smoothstep = scaled_x * scaled_x * (3 - 2 * scaled_x)
+end function smoothstep
+
+function clamp(x, lower_limit, upper_limit)
+  real(num), intent(in) :: x, lower_limit, upper_limit
+  real(num) :: clamp
+  if (x < lower_limit) then
+    clamp = lower_limit
+    return
+  else if (x > upper_limit) then
+    clamp = upper_limit
+    return
+  else
+    clamp = x
+    return
+  endif
+end function clamp
+
 !--------------------------------------
 FUNCTION stagger_j(var)
 !+ function for de-staggering any j
@@ -241,22 +267,24 @@ FUNCTION T2d(R,T)
   part_grid_index(1) = floor((R(1) - myx(4))*grid_spacing_inverse(1)) + 4
   part_grid_index(2) = floor((R(2) - myy(4))*grid_spacing_inverse(2)) + 4
   
-  ! DO jjx=4,nx-4
-  !  IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
-  !    part_grid_index_check(1)=jjx
-  !    EXIT
-  !  !ELSE
-  !  !  PRINT *, 'CANNOT FIND R(1) IN LARE x RANGE'
-  !  ENDIF
-  ! ENDDO
-  ! DO jjy=4,ny-4
-  !  IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
-  !    part_grid_index_check(2)=jjy
-  !    EXIT
-  !  !ELSE
-  !  !  PRINT *, 'CANNOT FIND R(2) IN LARE y RANGE'
-  !  ENDIF
-  ! ENDDO
+   !DO jjx=4,nx-4
+   ! IF ((R(1).ge.myx(jjx)).and.(R(1).lt.myx(jjx+1))) THEN 
+   !   part_grid_index(1)=jjx
+   !   !part_grid_index_check(1)=jjx
+   !   EXIT
+   ! !ELSE
+   ! !  PRINT *, 'CANNOT FIND R(1) IN LARE x RANGE'
+   ! ENDIF
+   !ENDDO
+   !DO jjy=4,ny-4
+   ! IF ((R(2).ge.myy(jjy)).and.(R(2).lt.myy(jjy+1))) THEN
+   !   part_grid_index(2)=jjy
+   !   !part_grid_index_check(2)=jjy
+   !   EXIT
+   ! !ELSE
+   ! !  PRINT *, 'CANNOT FIND R(2) IN LARE y RANGE'
+   ! ENDIF
+   !ENDDO
 
   !if (any(part_grid_index(:) .ne. part_grid_index_check(:))) then
   !  print *, "calculated and brute force indices don't match."
@@ -416,8 +444,10 @@ FUNCTION T2d(R,T)
       mjx(ix,iy)=dmbzdy(ix,iy)!-dmbydz(ix,iy,iz)
       mjy(ix,iy)=-dmbzdx(ix,iy)!+dmbxdz(ix,iy,iz)
       mjz(ix,iy)=dmbydx(ix,iy)-dmbxdy(ix,iy)
-      modj=(mjx(ix,iy)*mjx(ix,iy)+mjy(ix,iy)*mjy(ix,iy)+mjz(ix,iy)*mjz(ix,iy))**0.5_num   
-      meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
+      modj=sqrt(mjx(ix,iy)*mjx(ix,iy)+mjy(ix,iy)*mjy(ix,iy)+mjz(ix,iy)*mjz(ix,iy))
+      meta(ix,iy)=smoothstep(modj, jcrit, rwidth)*eta+etabkg          
+      ! ALEXEI: original implementation. remove when happy with smoothstep
+      !meta(ix,iy)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
      END DO
     END DO
 
@@ -960,14 +990,10 @@ FUNCTION T3d(R,T)
       mjx(ix,iy,iz)=dmbzdy(ix,iy,iz)-dmbydz(ix,iy,iz)
       mjy(ix,iy,iz)=dmbxdz(ix,iy,iz)-dmbzdx(ix,iy,iz)
       mjz(ix,iy,iz)=dmbydx(ix,iy,iz)-dmbxdy(ix,iy,iz)
-      modj=(mjx(ix,iy,iz)*mjx(ix,iy,iz)+mjy(ix,iy,iz)*mjy(ix,iy,iz)+mjz(ix,iy,iz)*mjz(ix,iy,iz))**0.5_num   
-      !!OCT 2014: replace step function with smooth eta ramp using tanh profile:
-      !IF (modj.gt.jcrit) THEN
-      ! meta(ix,iy,iz)=eta
-      !ELSE
-      ! meta(ix,iy,iz)=0.0_num
-      !ENDIF
-      meta(ix,iy,iz)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
+      modj=sqrt(mjx(ix,iy,iz)*mjx(ix,iy,iz)+mjy(ix,iy,iz)*mjy(ix,iy,iz)+mjz(ix,iy,iz)*mjz(ix,iy,iz))
+      meta(ix,iy,iz)=smoothstep(modj, jcrit, rwidth)*eta+etabkg          
+      ! ALEXEI: original implementation, remove when happy with smoothstep
+      !meta(ix,iy,iz)=0.5_num*(tanh((modj-jcrit)/rwidth)+1.0_num)*eta+etabkg          
      END DO
     END DO
    END DO
