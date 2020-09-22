@@ -614,13 +614,20 @@ FUNCTION T3d(R,T)
   REAL(num)					:: temp,  modj
   REAL(num), DIMENSION(3)			:: grid_spacing, grid_spacing_inverse, coffset
   REAL(num), DIMENSION(:), ALLOCATABLE		:: dgt, odgt
-  REAL(num), DIMENSION(:), ALLOCATABLE		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
-  REAL(num), DIMENSION(:), ALLOCATABLE		:: dbxdxt,dbxdyt,dbxdzt,dbydxt,dbydyt,dbydzt,dbzdxt,dbzdyt,dbzdzt
-  REAL(num), DIMENSION(:), ALLOCATABLE		:: dExdxt,dExdyt,dExdzt,dEydxt,dEydyt,dEydzt,dEzdxt,dEzdyt,dEzdzt
-  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: mbx, mby, mbz, mEx, mEy, mEz, mjx, mjy, mjz, mvx, mvy, mvz
-  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmbxdx,dmbxdy,dmbxdz,dmbydx,dmbydy,dmbydz,dmbzdx,dmbzdy,dmbzdz
-  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: dmExdx,dmExdy,dmExdz,dmEydx,dmEydy,dmEydz,dmEzdx,dmEzdy,dmEzdz
-  REAL(num), DIMENSION(:, :, :), ALLOCATABLE	:: meta
+  REAL(num), DIMENSION(2)		:: bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt
+  REAL(num), DIMENSION(2)		:: dbxdxt,dbxdyt,dbxdzt,dbydxt,dbydyt,dbydzt,dbzdxt,dbzdyt,dbzdzt
+  REAL(num), DIMENSION(2)		:: dExdxt,dExdyt,dExdzt,dEydxt,dEydyt,dEydzt,dEzdxt,dEzdyt,dEzdzt
+  REAL(num), DIMENSION(-4:5, -4:5, -4:5)	:: mbx, mby, mbz
+  REAL(num), DIMENSION(-2:3, -2:3, -2:3)	:: mEx, mEy, mEz
+  REAL(num), DIMENSION(-2:3, -2:3, -2:3)	:: mjx, mjy, mjz
+  REAL(num), DIMENSION(-2:3, -2:3, -2:3)	:: mvx, mvy, mvz
+  REAL(num), DIMENSION(-2:3, -4:5, -4:5)	:: dmbxdx,dmbydx,dmbzdx
+  REAL(num), DIMENSION(-4:5, -2:3, -4:5)	:: dmbxdy,dmbydy,dmbzdy
+  REAL(num), DIMENSION(-4:5, -4:5, -2:3)	:: dmbxdz,dmbydz,dmbzdz
+  REAL(num), DIMENSION(0:1, -2:3, -2:3)	    :: dmExdx,dmEydx,dmEzdx
+  REAL(num), DIMENSION(-2:3, 0:1, -2:3)     :: dmExdy,dmEydy,dmEzdy
+  REAL(num), DIMENSION(-2:3, -2:3, 0:1)     :: dmExdz,dmEydz,dmEzdz
+  REAL(num), DIMENSION(-2:3, -2:3, -2:3)	:: meta
   INTEGER, DIMENSION(4) 			:: part_grid_index		! set at value it could never reach!
   INTEGER, DIMENSION(4) 			:: part_grid_index_check		! ALEXEI: debugging!
   INTEGER					:: jjx, jjy, jjz,jjt, rpt
@@ -697,15 +704,9 @@ FUNCTION T3d(R,T)
     ENDIF
    ENDDO
    rpt=1
-   ALLOCATE(bxt(2), byt(2), bzt(2),vxt(2), vyt(2), vzt(2), Ext(2), Eyt(2), Ezt(2), jxt(2), jyt(2), jzt(2))
-   ALLOCATE(dbxdxt(2),dbxdyt(2),dbxdzt(2),dbydxt(2),dbydyt(2),dbydzt(2),dbzdxt(2),dbzdyt(2),dbzdzt(2))
-   ALLOCATE(dExdxt(2),dExdyt(2),dExdzt(2),dEydxt(2),dEydyt(2),dEydzt(2),dEzdxt(2),dEzdyt(2),dEzdzt(2))
   ELSE
    part_grid_index(4)=1
    rpt=0
-   ALLOCATE(bxt(1), byt(1), bzt(1),vxt(1), vyt(1), vzt(1), Ext(1), Eyt(1), Ezt(1), jxt(1), jyt(1), jzt(1))
-   ALLOCATE(dbxdxt(1),dbxdyt(1),dbxdzt(1),dbydxt(1),dbydyt(1),dbydzt(1),dbzdxt(1),dbzdyt(1),dbzdzt(1))
-   ALLOCATE(dExdxt(1),dExdyt(1),dExdzt(1),dEydxt(1),dEydyt(1),dEydzt(1),dEzdxt(1),dEzdyt(1),dEzdzt(1))
   !what happens if there is one frame to work with?
   ENDIF 
 
@@ -767,38 +768,11 @@ FUNCTION T3d(R,T)
    ! JT OCT2014: commented out O(h) derivs, and insert O(h^2)
    
    ! begin with temporary B arrays:
-   ALLOCATE(mbx(-4:5,-4:5,-4:5))
-   ALLOCATE(mby(-4:5,-4:5,-4:5))
-   ALLOCATE(mbz(-4:5,-4:5,-4:5))
-   !ALLOCATE(mbx(-2:3,-2:3,-2:3))
-   !ALLOCATE(mby(-2:3,-2:3,-2:3))
-   !ALLOCATE(mbz(-2:3,-2:3,-2:3))
-     
-   !mbx=bx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
-   !mby=by(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
-   !mbz=bz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3)
-   !print*, part_grid_index(1), part_grid_index(2), part_grid_index(3)
    mbx=bx(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
    mby=by(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
    mbz=bz(part_grid_index(1)-4:part_grid_index(1)+5,part_grid_index(2)-4:part_grid_index(2)+5,part_grid_index(3)-4:part_grid_index(3)+5,part_grid_index(4)+it)
 
-   !ALLOCATE(dmbxdx(-1:2,-2:3,-2:3))
-   !ALLOCATE(dmbydx(-1:2,-2:3,-2:3))
-   !ALLOCATE(dmbzdx(-1:2,-2:3,-2:3))
-   !DO iz=-2,3   
-   ! DO iy=-2,3
-   !  DO ix=-1,2
-   !   dmbxdx(ix,iy,iz)=0.5_num*(mbx(ix+1,iy,iz)-mbx(ix-1,iy,iz))*grid_spacing_inverse(1)
-   !   dmbydx(ix,iy,iz)=0.5_num*(mby(ix+1,iy,iz)-mby(ix-1,iy,iz))*grid_spacing_inverse(1)
-   !   dmbzdx(ix,iy,iz)=0.5_num*(mbz(ix+1,iy,iz)-mbz(ix-1,iy,iz))*grid_spacing_inverse(1)
-   !  ENDDO
-   ! ENDDO
-   !ENDDO
    ! calculate x-derivs first..
-   ALLOCATE(dmbxdx(-2:3,-4:5,-4:5))
-   ALLOCATE(dmbydx(-2:3,-4:5,-4:5))
-   ALLOCATE(dmbzdx(-2:3,-4:5,-4:5))
-
    DO iz=-4,5   
     DO iy=-4,5
      DO ix=-2,3
@@ -808,25 +782,8 @@ FUNCTION T3d(R,T)
      END DO
     END DO
    END DO
-
    
-   !ALLOCATE(dmbxdy(-2:3,-1:2,-2:3))
-   !ALLOCATE(dmbydy(-2:3,-1:2,-2:3))
-   !ALLOCATE(dmbzdy(-2:3,-1:2,-2:3))
-   !DO iz=-2,3   
-   ! DO iy=-1,2
-   !  DO ix=-2,3
-   !   dmbxdy(ix,iy,iz)=0.5_num*(mbx(ix,iy+1,iz)-mbx(ix,iy-1,iz))*grid_spacing_inverse(2)
-   !   dmbydy(ix,iy,iz)=0.5_num*(mby(ix,iy+1,iz)-mby(ix,iy-1,iz))*grid_spacing_inverse(2)
-   !   dmbzdy(ix,iy,iz)=0.5_num*(mbz(ix,iy+1,iz)-mbz(ix,iy-1,iz))*grid_spacing_inverse(2)
-   !  ENDDO
-   ! ENDDO
-   !ENDDO
    ! ..followed by y-derivs..
-   ALLOCATE(dmbxdy(-4:5,-2:3,-4:5))
-   ALLOCATE(dmbydy(-4:5,-2:3,-4:5))
-   ALLOCATE(dmbzdy(-4:5,-2:3,-4:5))
-
    DO iz=-4,5   
     DO iy=-2,3
      DO ix=-4,5
@@ -837,23 +794,7 @@ FUNCTION T3d(R,T)
     END DO
    END DO
 
-   !ALLOCATE(dmbxdz(-2:3,-2:3,-1:2))
-   !ALLOCATE(dmbydz(-2:3,-2:3,-1:2))
-   !ALLOCATE(dmbzdz(-2:3,-2:3,-1:2))
-   !DO iz=-1,2
-   ! DO iy=-2,3   
-   !  DO ix=-2,3
-   !   dmbxdz(ix,iy,iz)=0.5_num*(mbx(ix,iy,iz+1)-mbx(ix,iy,iz-1))*grid_spacing_inverse(3)
-   !   dmbydz(ix,iy,iz)=0.5_num*(mby(ix,iy,iz+1)-mby(ix,iy,iz-1))*grid_spacing_inverse(3)
-   !   dmbzdz(ix,iy,iz)=0.5_num*(mbz(ix,iy,iz+1)-mbz(ix,iy,iz-1))*grid_spacing_inverse(3)
-   !  ENDDO
-   ! ENDDO
-   !ENDDO
    ! .. and finally z derivs.
-   ALLOCATE(dmbxdz(-4:5,-4:5,-2:3))
-   ALLOCATE(dmbydz(-4:5,-4:5,-2:3))
-   ALLOCATE(dmbzdz(-4:5,-4:5,-2:3))
-
    DO iz=-2,3
     DO iy=-4,5   
      DO ix=-4,5
@@ -867,40 +808,12 @@ FUNCTION T3d(R,T)
    
    ! NB the arrays are odd shapes depending on deriv direction but the target cell remains at [0:1,0:1,0:1]
    ! also need temporary velocity arrays, in order to calc E=-etaJ+vxB
-   !ALLOCATE(mvx(-1:2,-1:2,-1:2))
-   !ALLOCATE(mvy(-1:2,-1:2,-1:2))
-   !ALLOCATE(mvz(-1:2,-1:2,-1:2))
-   !mvx=vx(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
-   !mvy=vy(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
-   !mvz=vz(part_grid_index(1)-1:part_grid_index(1)+2,part_grid_index(2)-1:part_grid_index(2)+2,part_grid_index(3)-1:part_grid_index(3)+2)
-   ALLOCATE(mvx(-2:3,-2:3,-2:3))
-   ALLOCATE(mvy(-2:3,-2:3,-2:3))
-   ALLOCATE(mvz(-2:3,-2:3,-2:3))
    mvx=vx(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
    mvy=vy(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
    mvz=vz(part_grid_index(1)-2:part_grid_index(1)+3,part_grid_index(2)-2:part_grid_index(2)+3,part_grid_index(3)-2:part_grid_index(3)+3,part_grid_index(4)+it)
    
    
    ! now calculate temporary currents and also local eta values
-   !ALLOCATE(mjx(-1:2,-1:2,-1:2))
-   !ALLOCATE(mjy(-1:2,-1:2,-1:2))
-   !ALLOCATE(mjz(-1:2,-1:2,-1:2))
-   !ALLOCATE(mEx(-1:2,-1:2,-1:2))
-   !ALLOCATE(mEy(-1:2,-1:2,-1:2))
-   !ALLOCATE(mEz(-1:2,-1:2,-1:2))
-   !ALLOCATE(meta(-1:2,-1:2,-1:2))
-   !DO iz=-1,2   
-   ! DO iy=-1,2
-   !  DO ix=-1,2
-   ALLOCATE(mjx(-2:3,-2:3,-2:3))
-   ALLOCATE(mjy(-2:3,-2:3,-2:3))
-   ALLOCATE(mjz(-2:3,-2:3,-2:3))
-   ALLOCATE(mEx(-2:3,-2:3,-2:3))
-   ALLOCATE(mEy(-2:3,-2:3,-2:3))
-   ALLOCATE(mEz(-2:3,-2:3,-2:3))
-   ALLOCATE(meta(-2:3,-2:3,-2:3))
-   
-
    DO iz=-2,3  
     DO iy=-2,3
      DO ix=-2,3
@@ -955,16 +868,6 @@ FUNCTION T3d(R,T)
     dmbzdz(0,0,0), dmbzdz(1,0,0), dmbzdz(0,1,0), dmbzdz(1,1,0),&
     dmbzdz(0,0,1), dmbzdz(1,0,1), dmbzdz(0,1,1), dmbzdz(1,1,1))
    
-   DEALLOCATE(dmbxdx)
-   DEALLOCATE(dmbydx)
-   DEALLOCATE(dmbzdx)
-   DEALLOCATE(dmbxdy)
-   DEALLOCATE(dmbydy)
-   DEALLOCATE(dmbzdy)
-   DEALLOCATE(dmbxdz)
-   DEALLOCATE(dmbydz)
-   DEALLOCATE(dmbzdz)
-
    ! interpolate j too at this stage:
    !mjx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
    !temp=linterp3d(R(1)-myx(part_grid_index(1)),R(2)-myy(part_grid_index(2)),R(3)-myz(part_grid_index(3)),&	!7
@@ -1002,32 +905,9 @@ FUNCTION T3d(R,T)
    ENDDO
       
    
-   DEALLOCATE(mvx)
-   DEALLOCATE(mvy)
-   DEALLOCATE(mvz)
-   DEALLOCATE(mbx)
-   DEALLOCATE(mby)
-   DEALLOCATE(mbz)
-   DEALLOCATE(mjx)
-   DEALLOCATE(mjy)
-   DEALLOCATE(mjz)    
-   DEALLOCATE(meta)
-   
    ! --STEP FIVE-- !
    ! finally, calculate derivatives of electric field:
    
-   !ALLOCATE(dmExdx(0:1,-1:2,-1:2))
-   !ALLOCATE(dmEydx(0:1,-1:2,-1:2))
-   !ALLOCATE(dmEzdx(0:1,-1:2,-1:2))
-   !DO iz=-1,2   
-   ! DO iy=-1,2
-   !  DO ix=0,1
-      !dmExdx(ix,iy,iz)=0.5_num*(mEx(ix+1,iy,iz)-mEx(ix-1,iy,iz))*grid_spacing_inverse(1)
-      !dmEydx(ix,iy,iz)=0.5_num*(mEy(ix+1,iy,iz)-mEy(ix-1,iy,iz))*grid_spacing_inverse(1)
-      !dmEzdx(ix,iy,iz)=0.5_num*(mEz(ix+1,iy,iz)-mEz(ix-1,iy,iz))*grid_spacing_inverse(1)
-   ALLOCATE(dmExdx(0:1,-2:3,-2:3))
-   ALLOCATE(dmEydx(0:1,-2:3,-2:3))
-   ALLOCATE(dmEzdx(0:1,-2:3,-2:3))
    DO iz=-2,3   
     DO iy=-2,3
      DO ix=0,1
@@ -1038,18 +918,6 @@ FUNCTION T3d(R,T)
     ENDDO
    ENDDO
    
- !  ALLOCATE(dmExdy(-1:2,0:1,-1:2))
- !  ALLOCATE(dmEydy(-1:2,0:1,-1:2))
- !  ALLOCATE(dmEzdy(-1:2,0:1,-1:2))  
- !  DO iz=-1,2   
- !   DO iy=0,1
- !    DO ix=-1,2
- !     dmExdy(ix,iy,iz)=0.5_num*(mEx(ix,iy+1,iz)-mEx(ix,iy-1,iz))*grid_spacing_inverse(2)
- !     dmEydy(ix,iy,iz)=0.5_num*(mEy(ix,iy+1,iz)-mEy(ix,iy-1,iz))*grid_spacing_inverse(2)
- !     dmEzdy(ix,iy,iz)=0.5_num*(mEz(ix,iy+1,iz)-mEz(ix,iy-1,iz))*grid_spacing_inverse(2)
-   ALLOCATE(dmExdy(-2:3,0:1,-2:3))
-   ALLOCATE(dmEydy(-2:3,0:1,-2:3))
-   ALLOCATE(dmEzdy(-2:3,0:1,-2:3))  
    DO iz=-2,3   
     DO iy=0,1
      DO ix=-2,3  
@@ -1060,18 +928,6 @@ FUNCTION T3d(R,T)
     ENDDO
    ENDDO   
    
-   !ALLOCATE(dmExdz(-1:2,-1:2,0:1))
-   !ALLOCATE(dmEydz(-1:2,-1:2,0:1))
-   !ALLOCATE(dmEzdz(-1:2,-1:2,0:1))   
-   !DO iz=0,1   
-   ! DO iy=-1,2
-   !  DO ix=-1,2
-   !   dmExdz(ix,iy,iz)=0.5_num*(mEx(ix,iy,iz+1)-mEx(ix,iy,iz-1))*grid_spacing_inverse(3)
-   !   dmEydz(ix,iy,iz)=0.5_num*(mEy(ix,iy,iz+1)-mEy(ix,iy,iz-1))*grid_spacing_inverse(3)
-   !   dmEzdz(ix,iy,iz)=0.5_num*(mEz(ix,iy,iz+1)-mEz(ix,iy,iz-1))*grid_spacing_inverse(3)
-   ALLOCATE(dmExdz(-2:3,-2:3,0:1))
-   ALLOCATE(dmEydz(-2:3,-2:3,0:1))
-   ALLOCATE(dmEzdz(-2:3,-2:3,0:1))   
    DO iz=0,1   
     DO iy=-2,3
      DO ix=-2,3
@@ -1131,16 +987,6 @@ FUNCTION T3d(R,T)
     dmEzdz(0,0,1), dmEzdz(1,0,1), dmEzdz(0,1,1), dmEzdz(1,1,1))
    dEzdzt(it+1)=temp
    
-   DEALLOCATE(dmExdx)
-   DEALLOCATE(dmEydx)
-   DEALLOCATE(dmEzdx)
-   DEALLOCATE(dmExdy)
-   DEALLOCATE(dmEydy)
-   DEALLOCATE(dmEzdy)
-   DEALLOCATE(dmExdz)
-   DEALLOCATE(dmEydz)
-   DEALLOCATE(dmEzdz)
-   
    !mEx(0:3,0:3,0:3)	<-x=1-2,y=1-2,z=1-2
    !linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
          
@@ -1160,10 +1006,6 @@ FUNCTION T3d(R,T)
     mEz(0,0,1), mEz(1,0,1), mEz(0,1,1), mEz(1,1,1))
    Ezt(it+1)=temp 
     
-   DEALLOCATE(mEx)
-   DEALLOCATE(mEy)
-   DEALLOCATE(mEz)
-   
   END DO
    
    !we can try and sort other variables later (e.g. density/temp) when we're happy
@@ -1286,11 +1128,6 @@ FUNCTION T3d(R,T)
     T3d(30)=dEzdzt(1)
     T3d(31:36)=0.0_num
    ENDIF
-   
-   DEALLOCATE(bxt, byt, bzt,vxt, vyt, vzt, Ext, Eyt, Ezt, jxt, jyt, jzt)
-   DEALLOCATE(dbxdxt,dbxdyt,dbxdzt,dbydxt,dbydyt,dbydzt,dbzdxt,dbzdyt,dbzdzt)
-   DEALLOCATE(dExdxt,dExdyt,dExdzt,dEydxt,dEydyt,dEydzt,dEzdxt,dEzdyt,dEzdzt)
-   !DEALLOCATE(dgt,odgt)
    
    RETURN
 
