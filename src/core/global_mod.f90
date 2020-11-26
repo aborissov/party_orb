@@ -13,7 +13,7 @@ MODULE global
  CHARACTER(Len = 4), PARAMETER	:: FMOD='l2d' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
  INTEGER, PARAMETER		:: mysnap=0000	!  no. of ****.cfd or ****.sdf file (if "l3d")
  INTEGER, PARAMETER		:: nframes=1	! no. of frames
- CHARACTER(Len = 40)		:: sloc='lare_snapshots/'
+ CHARACTER(Len = 40)		:: sloc='lare2d_data/'
 
 !##########################################################################
 ! now some stuff required to plug in lare data 
@@ -27,7 +27,7 @@ MODULE global
  INTEGER 			:: frame 
  
 !JT DEBUGGING SWITCHES:
- LOGICAL, PARAMETER		:: writervs=.FALSE., writesum=.FALSE.			! ARE WE WRITING? (ALWAYS TRUE!) 
+ LOGICAL, PARAMETER		:: writervs=.TRUE., writesum=.FALSE.			! ARE WE WRITING? (ALWAYS TRUE!) 
  LOGICAL, PARAMETER		:: JTo=.FALSE., JTo2=.FALSE., JTo3=.FALSE., JTO4=.FALSE.	! various debugging switches (2&3 output every NSTP)
  LOGICAL, PARAMETER		:: FIELDDUMP=.FALSE.					! switch to dump the lare OR NLFFF fields to unformatted data files.
  LOGICAL, PARAMETER		:: everystepswitch=.FALSE.				! dumps EVERY NSTP to each particle data file.
@@ -227,8 +227,6 @@ SUBROUTINE read_param
  RANDOMISE_R, RANDOMISE_A, RANDOMISE_E!
 
   OPEN(20,file='newinput.dat',status='unknown')
-  ! JT: Alpha - angle between initial V & B
-  !
   READ(20,nml=inputdata)
   CLOSE(20)
 

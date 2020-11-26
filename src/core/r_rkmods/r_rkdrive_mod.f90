@@ -5,7 +5,7 @@ MODULE M_driverR
     USE M_rkqsR, ONLY: RKQS
     USE M_fields, ONLY: FIELDS
     USE M_products, ONLY: DOT, CROSS
-    USE io
+    !USE io
 
 IMPLICIT NONE
 
@@ -42,8 +42,8 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,
  REAL(num)				:: MODB, oMODB,  DMODBDS, MODGRADB
  CHARACTER(LEN=30)			:: rvfilename
  CHARACTER(LEN=35)			:: tempfile, tempfile2, tempfile3
- integer(hid_t) :: file_id
- integer(hid_t), dimension(:), allocatable :: dset_ids
+ !integer(hid_t) :: file_id
+ !integer(hid_t), dimension(:), allocatable :: dset_ids
  integer        :: particle_index, n_io_fields
  integer        :: offset, write_size, buffer_index, write_step
  real(num), dimension(:,:), allocatable :: R_buf
@@ -75,6 +75,7 @@ UNDERFLOW=0
  IF (JTo3)  open(57,file=tempfile3,recl=1024,status='unknown')
 
  ! Init HDF5 IO 
+ ! ALEXEI: HDF5 IO
  ! ALEXEI: get rid of all the other IO
   offset = 0
   write_size = 100
@@ -82,8 +83,8 @@ UNDERFLOW=0
   allocate(R_buf(3,write_size))
   allocate(v_par_buf(1, write_size))
   buffer_index = 1
-  call init_particle_io(particle_index, n_io_fields, file_id, dset_ids, &
-                        write_size)
+  !call init_particle_io(particle_index, n_io_fields, file_id, dset_ids, &
+  !                      write_size)
  
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
@@ -198,10 +199,11 @@ UNDERFLOW=0
     gyrofreq,gyroperiod,gyrorad				   !27,28,29
 
    !print *, R
-   if (buffer_index == write_size+1) then
-     call write_particle_data(file_id, offset, write_size, R_buf, v_par_buf)
-     buffer_index = 1
-   endif
+   ! ALEXEI: HDF5 IO
+   !if (buffer_index == write_size+1) then
+   !  call write_particle_data(file_id, offset, write_size, R_buf, v_par_buf)
+   !  buffer_index = 1
+   !endif
    
    DO I = 1,3       !Scaling used to monitor accuracy
     RSCAL(I) = ABS(R(I))+ABS(H*DRDT(I)) + TINY
@@ -255,7 +257,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -279,7 +282,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -318,7 +322,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -341,7 +346,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -380,7 +386,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -404,7 +411,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -443,7 +451,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -466,7 +475,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -505,7 +515,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -529,7 +540,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -568,7 +580,8 @@ UNDERFLOW=0
         GAMMASTART = GAMMA
         ! Close the file, don't forget to write the remaining buffer_index-1
         ! data entries
-        call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+        ! ALEXEI: HDF5 IO
+        !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
         deallocate(R_buf)
         deallocate(v_par_buf)
         RETURN
@@ -591,7 +604,8 @@ UNDERFLOW=0
          GAMMASTART = GAMMA
          ! Close the file, don't forget to write the remaining buffer_index-1
          ! data entries
-         call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+         ! ALEXEI: HDF5 IO
+         !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
          deallocate(R_buf)
          deallocate(v_par_buf)
          RETURN
@@ -648,7 +662,8 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     deallocate(v_par_buf)
     RETURN 
@@ -678,7 +693,8 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     RETURN
    ENDIF
@@ -734,7 +750,8 @@ UNDERFLOW=0
       GAMMASTART=GAMMA
       ! Close the file, don't forget to write the remaining buffer_index-1 data
       ! entries
-      call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+      ! ALEXEI: HDF5 IO
+      !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
       deallocate(R_buf)
       deallocate(v_par_buf)
       RETURN                            !normal exit
@@ -752,7 +769,8 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     deallocate(v_par_buf)
     RETURN
@@ -770,7 +788,8 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     deallocate(v_par_buf)
     RETURN
@@ -787,7 +806,8 @@ UNDERFLOW=0
     GAMMASTART = GAMMA
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     deallocate(v_par_buf)
     RETURN
@@ -844,7 +864,8 @@ UNDERFLOW=0
     print*, 'help'
     ! Close the file, don't forget to write the remaining buffer_index-1 data
     ! entries
-    call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+    ! ALEXEI: HDF5 IO
+    !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
     deallocate(R_buf)
     deallocate(v_par_buf)
     RETURN 
@@ -855,13 +876,14 @@ UNDERFLOW=0
     H=HNEXT
    ENDIF
    
-   if (modulo(NSTP, write_step) == 0 .or. NSTP == 1) then
-     do i = 1, 3
-       R_buf(i,buffer_index) = R(i)
-     end do
-     v_par_buf(1,buffer_index) = vpar
-     buffer_index = buffer_index+1
-   endif
+   ! ALEXEI: HDF5 IO
+   !if (modulo(NSTP, write_step) == 0 .or. NSTP == 1) then
+   !  do i = 1, 3
+   !    R_buf(i,buffer_index) = R(i)
+   !  end do
+   !  v_par_buf(1,buffer_index) = vpar
+   !  buffer_index = buffer_index+1
+   !endif
 
   ENDDO                      !if we get to nstpmax...
  PRINT *, 'NSTP Loop ended'
@@ -871,7 +893,8 @@ UNDERFLOW=0
  IF (writervs)	CLOSE(file_index)
  ! Close the file, don't forget to write the remaining buffer_index-1 data
  ! entries
- call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
+ ! ALEXEI: HDF5 IO
+ !call close_file(file_id, dset_ids, offset, buffer_index-1, R_buf, v_par_buf)
  deallocate(R_buf)
  deallocate(v_par_buf)
  RETURN

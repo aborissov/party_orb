@@ -489,6 +489,7 @@ CONTAINS
   
   INQUIRE(file=TRIM(cfdloc),exist=ce)
   INQUIRE(file=TRIM(sdfloc),exist=se)
+  print *, sdfloc
 
   IF ((ce).NEQV.(se)) THEN	! do flags differ? (if so, one is ON!)
    IF (ce) THEN

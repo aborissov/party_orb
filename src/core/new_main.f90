@@ -13,7 +13,7 @@ USE M_fields, ONLY: FIELDS
 USE gammadist_mod, ONLY: random_gamma
 USE omp_lib
 USE cell_struct
-USE io
+!USE io
 
 IMPLICIT NONE
  
@@ -96,23 +96,51 @@ IMPLICIT NONE
  contains
 !------------------------------------------------------------------------------!
 function init_cells(n_cells, n_part_per_cell) result(cells)
-  integer, intent(in) :: n_cells, n_part_per_cell
-  type(cell), dimension(:), allocatable :: cells
+  integer, intent(in)   :: n_cells              ! number of cells
+  integer               :: n_pos_per_cell       ! number of particle positions per cell
+  integer               :: n_gamma_per_cell     ! number of gammas per cell
+  integer               :: n_alpha_per_cell     ! number of pitch angles per cell
+  type(cell), dimension(:), allocatable :: cells    ! cell structs array
+  integer               :: n_part_per_cell      ! total number of particles per cell
+  integer               :: i,j,k,l,part_index   ! counters
+
   allocate(cells(n_cells))
 
+  ! ALEXEI: need to implement randomised ICs so crash for now
+  if (randomise_r .or. randomise_a .or. randomise_e) then
+    print *, "We can't do random ICs yet..."
+    call abort
+  end if
+
   do i = 1,n_cells
+    ! ALEXEI: crash if using more than one cell, need to check that we're
+    ! initialising correctly
+    if (n_cells > 1) then
+      print *, "make sure we initialise correctly."
+      call abort
+    end if
+
     ! Allocate the coordinate arrays, particle velocities and times
+    n_part_per_cell = n_pos_per_cell * n_gamma_per_cell * n_alpha_per_cell
     allocate(cells(i) % particle_coords(3, n_part_per_cell))
-    allocate(cells(i) % particle_v_par(n_part_per_cell))
-    allocate(cells(i) % particle_v_perp(n_part_per_cell))
+    allocate(cells(i) % gamma(n_part_per_cell))
+    allocate(cells(i) % alpha(n_part_per_cell))
     allocate(cells(i) % particle_t(n_part_per_cell))
 
     ! Set the allocated quantities to their initial values
-    do j = 1,n_part_per_cell
-      cells(i) % particle_coords(:, j) = R1(:) + spatial_grid_step(:) * ((i-1)*n_part_per_cell + (j-1))
-      cells(i) % particle_v_par = 0 ! ALEXEI: place holder put some actual math in here!!!
-      cells(i) % particle_v_perp = 0 ! ALEXEI: place holder put some actual math in here!!!
-      cells(i) % particle_t = t1
+    do j = 1,n_pos_per_cell
+      do k = 1,n_gamma_per_cell
+        do l = 1,n_alpha_per_cell
+          part_index = j*k*l
+          cells(i) % particle_coords(:, part_index) = R1(:) + spatial_grid_step(:) * ((i-1)*n_part_per_cell + (j-1))
+          ! ALEXEI: make sure gamma is high enough to cover the ExB drift !!!
+          ! (see old JTmucalc
+          cells(i) % gamma(part_index) = (EkinLow + k * (EkinHigh - EkinLow)) &
+                                         / (cells(i) % particle_mass *c*c) + 1.0_num
+          cells(i) % alpha(part_index) = AlphaMin + l * (AlphaMax - AlphaMin) 
+          cells(i) % particle_t(part_index) = t1
+        end do
+      end do
     end do
 
     ! Set the grid bounds
