@@ -62,6 +62,9 @@ IMPLICIT NONE
       print*, "box upper bound", spatial_extent_upper_bound(i) 
     ENDIF
   END DO
+
+  ! ALEXEI: debugging
+  print *, "particle grid within field grid extent"
    
   ! Calculate total number of particles and step sizes for spatial and alpha grid
   nparticles=RSTEPS(1)*RSTEPS(2)*RSTEPS(3)*(AlphaSteps-1)*EkinSteps
@@ -75,15 +78,25 @@ IMPLICIT NONE
     ENDIF
   ENDDO
 
+  ! ALEXEI: debugging
+  print *, "nparticles calculated"
+   
   ! Init cells
   ! ALEXEI: for testing just using one cell for now, so n_part_per_cell = nparticles
   n_part_per_cell = nparticles
-  cells = init_cells(n_cells, n_part_per_cell)
+  cells = init_cells(n_cells, n_part_per_cell, RSTEPS(1)*RSTEPS(2)*RSTEPS(3), AlphaSteps-1, EkinSteps)
+
+  ! ALEXEI: debugging
+  print *, "cells initialised"
 
   ! Integrate particle orbits in the cells.
+  print *, "n_cells n_part_per_cell ", n_cells, n_part_per_cell
   do i = 1, n_cells
     call cells(i) % process(n_part_per_cell, i-1, nok, nbad)
   end do
+
+  ! ALEXEI: debugging
+  print *, "cells processed"
 
  IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN   !forget arrays at end
   CALL mpi_close                     ! mpi_routines.f90
@@ -95,13 +108,13 @@ IMPLICIT NONE
 !------------------------------------------------------------------------------!
  contains
 !------------------------------------------------------------------------------!
-function init_cells(n_cells, n_part_per_cell) result(cells)
+function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, n_alpha_per_cell) result(cells)
   integer, intent(in)   :: n_cells              ! number of cells
-  integer               :: n_pos_per_cell       ! number of particle positions per cell
-  integer               :: n_gamma_per_cell     ! number of gammas per cell
-  integer               :: n_alpha_per_cell     ! number of pitch angles per cell
+  integer, intent(in)   :: n_pos_per_cell       ! number of particle positions per cell
+  integer, intent(in)   :: n_gamma_per_cell     ! number of gammas per cell
+  integer, intent(in)   :: n_alpha_per_cell     ! number of pitch angles per cell
+  integer, intent(in)   :: n_part_per_cell      ! total number of particles per cell
   type(cell), dimension(:), allocatable :: cells    ! cell structs array
-  integer               :: n_part_per_cell      ! total number of particles per cell
   integer               :: i,j,k,l,part_index   ! counters
 
   allocate(cells(n_cells))
@@ -121,7 +134,6 @@ function init_cells(n_cells, n_part_per_cell) result(cells)
     end if
 
     ! Allocate the coordinate arrays, particle velocities and times
-    n_part_per_cell = n_pos_per_cell * n_gamma_per_cell * n_alpha_per_cell
     allocate(cells(i) % particle_coords(3, n_part_per_cell))
     allocate(cells(i) % gamma(n_part_per_cell))
     allocate(cells(i) % alpha(n_part_per_cell))
@@ -132,6 +144,7 @@ function init_cells(n_cells, n_part_per_cell) result(cells)
       do k = 1,n_gamma_per_cell
         do l = 1,n_alpha_per_cell
           part_index = j*k*l
+          cells(i) % particle_mass = M ! ALEXEI: I'm sure we don't need this here.
           cells(i) % particle_coords(:, part_index) = R1(:) + spatial_grid_step(:) * ((i-1)*n_part_per_cell + (j-1))
           ! ALEXEI: make sure gamma is high enough to cover the ExB drift !!!
           ! (see old JTmucalc

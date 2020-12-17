@@ -253,6 +253,11 @@ FUNCTION T2d(R,T)
    INTEGER, DIMENSION(3) 			:: part_grid_index_check		! ALEXEI: debugging!
    INTEGER					:: jjx, jjy, jjz,jjt, rpt
    LOGICAL					:: fxflag=.FALSE., fyflag=.FALSE., fzflag=.FALSE.
+
+   if (isnan(R(1)) .or. isnan(R(2)) .or. isnan(R(3))) then
+     print *, "R nan ", R
+     call abort
+   endif
  
     temp=0.0_num
     grid_spacing=(/myx(2)-myx(1),myy(2)-myy(1)/)	! grid spacing
@@ -327,7 +332,8 @@ FUNCTION T2d(R,T)
    PRINT*, 'particle identified at', L
    PRINT*, 'x/y grid bounds-> 1:', nx, ny
    PRINT*, 't grid bounds->', ltimes(1),':',ltimes(nframes)
-   print*, R
+   print*, 'position ', R
+   call abort
    STOP
   ENDIF
 

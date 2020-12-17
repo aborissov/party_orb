@@ -163,6 +163,21 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
  REAL(num)				:: fac, facsq, ofac, ofacsq
  !LOGICAL, INTENT(OUT)			:: ERR 
 
+ ! ALEXEI: debugging
+ integer  :: i
+
+ ! ALEXEI: debugging
+ call check_nan(T)
+ call check_nan(U)
+ call check_nan(GAMMA)
+ call check_nan(DGAMMADT)
+ call check_nan(MU)
+ call check_nan(T1)
+ call check_nan(T2)
+ do i = 1, 3
+   call check_nan(R(i))
+ enddo
+
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
  
@@ -234,13 +249,10 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
 ! will also attempt to include full 1-epar^2/b^2 thing
 ! - have included eperp<<B version so you can see where the non-dimensional version might have messed up things..
  
-  !DUDT = Omscl*tscl*EPAR - MU/gamma*DMODBDS + gamma*DOT(UE,DlittleBDT)							!(assuming eperp<<B)
-  !DUDT = Omscl*tscl*EPAR - MU/gamma*DMODBDS*fac + gamma*DOT(VE,DlittleBDT)						! THRELFALLETAL 2015
-  DUDT = Omscl*tscl*EPAR - MU/gamma*DMODBDS*fac + gamma*DOT(VE,OTHERS)							! THRELFALLETAL 2015
+  DUDT = Omscl*tscl*EPAR - MU/gamma*DMODBDS*fac + gamma*DOT(VE,OTHERS)                          ! THRELFALLETAL 2015
   
   DmodBDT=GRADBT-dot(B,DlittleBDT)
   RELDRIFT1=U*DlittleBDT+gamma*DVEDT+vscl*vscl/c/c*MU/gamma*VE*DmodBDT*fac
-  !RELDRIFT1=MU/gamma*GRADDRIFT+U*DlittleBDT+gamma*DVEDT+vscl*vscl/c/c*mu/gamma*VE*DmodBDT				!(assuming eperp<<B)
   RELDRIFT2=U/gamma*EPAR*VE
   
   !PRINT*, 'DER: mu/gamma', MU/gamma
@@ -250,26 +262,12 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
   d4=gamma*CROSS(B,DVEDT)*omodB*omodB*ofacsq
   d5=Epar*U/gamma*vscl*vscl/c/c*CROSS(B,VE)*omodB*omodB*ofacsq
   
+  DRperpDT= VE + oneuponOmscl/tscl*(d1+d2+d3+d4)+d5      
   
-   DRperpDT= VE + oneuponOmscl/tscl*(d1+d2+d3+d4)+d5      
-  ! PRINT*, 'DER: d1', d1   
-   !PRINT*, 'DER: d2', d2   
-   !PRINT*, 'DER: d3', d3   
-   !PRINT*, 'DER: d4', d4
-   !PRINT*, 'DER: oneuponOmscl/tscl*(d1+d2+d3+d4)', oneuponOmscl/tscl*(d1+d2+d3+d4)									
-   !PRINT*, 'DER: d5', d5
-   !PRINT*, 'DER: oneuponOmscl/tscl*(d1+d2+d3+d4)+d5', oneuponOmscl/tscl*(d1+d2+d3+d4)+d5	
- 
-  !DRperpDT=VE + oneuponOmscl/tscl*(CROSS(B,RELDRIFT1)*oMODB*oMODB)+vscl*vscl/c/c*(CROSS(B,RELDRIFT2)*oMODB*oMODB)	!(assuming eperp<<B)
-   DRDT =  DRperpDT + (U/gamma)*B*oMODB
-   
-  ! PRINT*, 'DER: DRperpDT', DRperpDT 
-  ! PRINT*, 'DER: (U/gamma)*B*oMODB', (U/gamma)*B*oMODB 
+  DRDT =  DRperpDT + (U/gamma)*B*oMODB
   
- !  STOP
-  !DgammaDT=Omscl*tscl*vscl*vscl/c/c*(dot(DRperpDT,E)+U/gamma*dot(B,E)*oMODB)+vscl*vscl/c/c*MU/gamma*DmodBDT*fac	!(assuming eperp<<B)  
-   DgammaDT=Omscl*tscl*vscl*vscl/c/c*(dot(DRperpDT,E)+U/gamma*dot(B,E)*oMODB)+vscl*vscl/c/c*MU/gamma*DmodBDT*fac	!THRELFALL ET AL 2015
-   return
+  DgammaDT=Omscl*tscl*vscl*vscl/c/c*(dot(DRperpDT,E)+U/gamma*dot(B,E)*oMODB)+vscl*vscl/c/c*MU/gamma*DmodBDT*fac   !THRELFALL ET AL 2015
+  return
 
 !-----------------------------------------------------------------------!
 ! Relativistic versions WITH Birn et al (2004) Normalisation		!

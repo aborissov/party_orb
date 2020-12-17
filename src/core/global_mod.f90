@@ -221,56 +221,74 @@ MODULE global
 !----------------------------------------------------
  contains
 !----------------------------------------------------!
-SUBROUTINE read_param
- Namelist/inputdata/T1,T2,H1,EPS,AlphaSteps,AlphaMin,AlphaMax,R1,R2,RSteps,EkinLow,&
- EKinHigh,EkinSteps,p_restart, p_restart_no, p_stop, p_stop_no, &
- RANDOMISE_R, RANDOMISE_A, RANDOMISE_E!
-
-  OPEN(20,file='newinput.dat',status='unknown')
-  READ(20,nml=inputdata)
-  CLOSE(20)
-
-END SUBROUTINE read_param
-!----------------------------------------------------!
-SUBROUTINE init_random_seed()
-
-      INTEGER :: i, n, clock
-      INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-
-      CALL RANDOM_SEED(size = n)
-      ALLOCATE(seed(n))
-
-      CALL SYSTEM_CLOCK(COUNT=clock)
-
-      seed = clock + 37 * (/ (i - 1, i = 1, n) /)
-      CALL RANDOM_SEED(PUT = seed)
-
-      DEALLOCATE(seed)
-END SUBROUTINE
-!-----------------------------------------------;
+  SUBROUTINE read_param
+    Namelist/inputdata/T1,T2,H1,EPS,AlphaSteps,AlphaMin,AlphaMax,R1,R2,RSteps,EkinLow,&
+    EKinHigh,EkinSteps,p_restart, p_restart_no, p_stop, p_stop_no, &
+    RANDOMISE_R, RANDOMISE_A, RANDOMISE_E!
+  
+    OPEN(20,file='newinput.dat',status='unknown')
+    READ(20,nml=inputdata)
+    CLOSE(20)
+  
+  END SUBROUTINE read_param
+  !----------------------------------------------------!
+  SUBROUTINE init_random_seed()
+  
+    INTEGER :: i, n, clock
+    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
+    
+    CALL RANDOM_SEED(size = n)
+    ALLOCATE(seed(n))
+    
+    CALL SYSTEM_CLOCK(COUNT=clock)
+    
+    seed = clock + 37 * (/ (i - 1, i = 1, n) /)
+    CALL RANDOM_SEED(PUT = seed)
+    
+    DEALLOCATE(seed)
+  END SUBROUTINE
+  !-----------------------------------------------;
   FUNCTION str_cmp(str_in, str_test)
-
+  
     CHARACTER(*), INTENT(IN) :: str_in, str_test
     CHARACTER(30) :: str_trim
     LOGICAL :: str_cmp
     INTEGER :: l
-
+  
     str_trim = TRIM(ADJUSTL(str_in))
     l = LEN(str_test)
-
+  
     IF (l > LEN(str_in)) THEN
       str_cmp = .FALSE.
       RETURN
     END IF
-
+  
     IF (str_trim(l+1:l+1) /= ' ') THEN
       str_cmp = .FALSE.
       RETURN
     END IF
-
+  
     str_cmp = str_trim(1:l) == str_test
-
+  
   END FUNCTION str_cmp
-!----------------------------------------------------!
+  !----------------------------------------------------!
+  ! Simple error checking function to make sure we didn't screw up our mpi calls
+  subroutine check_mpi_error(err)
+    integer     :: err
+  
+    if (err .ne. mpi_success) then
+      print *, "mpi call failed"
+      call abort
+    end if
+  end subroutine check_mpi_error
+
+  ! Function to check whether a variable is NaN
+  subroutine check_nan(x)
+    real(num)  :: x ! variable to check
+    if (isnan(x)) then
+      print *, "NaN detected. Aborting"
+      call abort
+    endif
+  end subroutine check_nan
 
 END MODULE global

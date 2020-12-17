@@ -87,6 +87,11 @@ UNDERFLOW=0
   !                      write_size)
  
  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
+ ! ALEXEI: debugging
+ if (isnan(R(1)) .or. isnan(R(2)) .or. isnan(R(3))) then
+   print *, "R is nan ", R
+   call abort
+ endif
  CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  bb=B/sqrt(dot(B,B))
  
@@ -222,6 +227,11 @@ UNDERFLOW=0
    !print 680, R
    !680 format ('R4=[',ES9.2,',',ES9.2,',',ES9.2,']')
    
+   ! ALEXEI: debugging
+   if (isnan(R(1)) .or. isnan(R(2)) .or. isnan(R(3))) then
+     print *, "R is nan ", R
+     call abort
+   endif
    CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, UNDERFLOW)	! T modified here.
    
    !SPATIAL EXIT AT BOUNDS

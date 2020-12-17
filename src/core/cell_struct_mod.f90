@@ -104,6 +104,11 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2, resetflag)
  USTART=Ustart/vscl					! hence, non-dimensionalising..
  mu=mu/m/vscl/vscl					! no bscl normalising factor - using normalised B's already!
 
+ if (isnan(mu)) then
+   print *, m, vtot, sin(alpha), gamma, modB, vscl
+   call abort
+ endif
+
 END SUBROUTINE
 
 end module cell_struct
