@@ -9,6 +9,7 @@ MODULE M_fields
   USE NLFF_fields, ONLY: NLFFFIELDS
   USE MHDp_fields, ONLY: MHDpFIELDS
   USE FR_fields, ONLY: FRFIELDS
+  USE bifrost_fields_mod, ONLY: bifrost_fields
   
   IMPLICIT NONE
 
@@ -47,6 +48,8 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
       route=8    
     ELSE IF ((str_cmp(FMOD, "MHDp")).OR.(str_cmp(FMOD, "mhdp"))) THEN
       route=9
+    ELSE IF ((str_cmp(FMOD, "bifrost"))) THEN
+      route=10
     ELSE
       PRINT*, "FIELD SELECTOR MODULE: incorrect field choice, choose from:"
       PRINT*, "['l3d','l2d','sep','CMT','test','bour','FRE', 'NLFF', 'MHDp']"
@@ -71,6 +74,8 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
     CALL NLFFFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   CASE(9)
     CALL MHDpFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+  CASE(10)
+    CALL bifrost_fields(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
 END SELECT
 
 

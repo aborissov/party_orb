@@ -6,13 +6,13 @@
 # --- make sure the right one is commented in the main body settings below
 
 # Set the compiler flags 
-FFLAGS = -g -O3 -J mod -fcheck=bounds -fno-range-check -ffree-line-length-none #-fopenmp
+FFLAGS = -g -O3 -J mod -fcheck=bounds -fno-range-check -ffree-line-length-none -fbacktrace #-ffpe-trap=invalid,zero,overflow,underflow,inexact,denormal #-fopenmp
 #FFLAGS = -o0 -J mod -C -fbounds-check -g -Wall #-fdefault-real-8 	# debugging flags
 #FFLAGS = -O3 -C -g -traceback -check all -warn all 			# mpif90 error flags
 #FFLAGS = -O3
 
 # name of the output executable files?
-TARGETN = nrparty
+#TARGETN = nrparty
 TARGETR =  rparty
 
 # --------------------------------------------------
@@ -30,8 +30,8 @@ MODULEFLAG = -I
 #FC = gfortran44 	# oldjock
 #MODULEFLAG = -module
 OPFLAGS = $(QMONO) $(QSINGLE) $(QFIRSTORDER)
-#FC = mpif90 $(OPFLAGS)
-FC = h5pfc $(OPFLAGS)
+FC = mpif90 $(OPFLAGS)
+#FC = h5pfc $(OPFLAGS)
 PREPROFLAGS = $(NONMPIIO)
 
 
@@ -61,10 +61,11 @@ OBJFILESR = global_mod.o mpi_routines.o products_mod.o lare_functions_mod.o l3dc
 	sdf_output_point.o sdf_output_point_r4.o sdf_output_point_r8.o sdf_output_point_ru.o\
 	sdf_output_station.o sdf_output_station_r4.o sdf_output_station_r8.o sdf_output_station_ru.o\
 	iocontrol.o input.o inputfunctions.o input_cartesian.o iocommon.o bourdinfields_mod.o NLFFfields_mod.o\
-	separatorfields_mod.o CMTfields_mod.o field_selector_mod.o gammadist_mod.o io_mod.o cell_struct_mod.o new_main.o
+	separatorfields_mod.o CMTfields_mod.o field_selector_mod.o gammadist_mod.o cell_struct_mod.o \
+	bifrost_fields_mod.o new_main.o #io_mod.o 
 
 
-FULLTARGETN = $(BINDIR)/$(TARGETN)
+#FULLTARGETN = $(BINDIR)/$(TARGETN)
 FULLTARGETR = $(BINDIR)/$(TARGETR)
 
 VPATH = $(SRCDIR):$(OBJDIR):$(SRCDIR)/core:$(SRCDIR)/core/othermods:$(SRCDIR)/core/nr_rkmods:\
@@ -107,7 +108,8 @@ datatidy:
 # All the dependencies
 global_mod.o: global_mod.f90 sdf_job_info.o
 cell_struct_mod.o: cell_struct_mod.f90 global_mod.o products_mod.o field_selector_mod.o r_rkdrive_mod.o	
-io_mod.o: io_mod.f90 global_mod.o
+#io_mod.o: io_mod.f90 global_mod.o
+bifrost_fields_mod.o: bifrost_fields_mod.f90 global_mod.o
 products_mod.o: products_mod.f90 global_mod.o
 gammadist_mod.o: gammadist_mod.f90 global_mod.o
 lare_functions_mod.o: lare_functions_mod.f90 global_mod.o
@@ -171,7 +173,7 @@ bourdinfields_mod.o: bourdinfields_mod.f90 lare_functions_mod.o global_mod.o pro
 NLFFfields_mod.o: NLFFfields_mod.f90 lare_functions_mod.o global_mod.o products_mod.o
 MHDpfields_mod.o: MHDpfields_mod.f90 lare_functions_mod.o global_mod.o products_mod.o
 field_selector_mod.o: field_selector_mod.f90 lare_fields_mod.o lare_functions_mod.o CMTfields_mod.o separatorfields_mod.o \
-			testfields_mod.o bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o FRfields_mod.o global_mod.o
+			testfields_mod.o bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o FRfields_mod.o bifrost_fields_mod.o global_mod.o
 ##--NREL DEPENDENCIES
 nr_derivs_mod.o: nr_derivs_mod.f90 global_mod.o field_selector_mod.o products_mod.o 
 nr_rkck_mod.o: nr_rkck_mod.f90 nr_derivs_mod.o global_mod.o field_selector_mod.o
@@ -181,9 +183,9 @@ nr_rkdrive_mod.o: nr_rkdrive_mod.f90 global_mod.o nr_derivs_mod.o nr_rkqs_mod.o 
 r_derivs_mod.o: r_derivs_mod.f90 global_mod.o products_mod.o field_selector_mod.o
 r_rkck_mod.o: r_rkck_mod.f90 r_derivs_mod.o global_mod.o field_selector_mod.o
 r_rkqs_mod.o: r_rkqs_mod.f90 global_mod.o r_rkck_mod.o field_selector_mod.o
-r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o field_selector_mod.o io_mod.o
+r_rkdrive_mod.o: r_rkdrive_mod.f90 global_mod.o r_derivs_mod.o r_rkqs_mod.o field_selector_mod.o #io_mod.o
 #mp
 nr_main.o: nr_main.f90 global_mod.o mpi_routines.o nr_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
 		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o
 new_main.o: new_main.f90 global_mod.o mpi_routines.o r_rkdrive_mod.o products_mod.o field_selector_mod.o lare_functions_mod.o \
-		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o cell_struct_mod.o io_mod.o
+		bourdinfields_mod.o NLFFfields_mod.o MHDpfields_mod.o gammadist_mod.o cell_struct_mod.o #io_mod.o
