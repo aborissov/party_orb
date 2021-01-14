@@ -9,11 +9,12 @@ module bifrost_fields_mod
 
   ! Data structure for holding grid associated with Bifrost simulation
   type, public :: bifrost_grid
-    integer     :: nx, ny, nz   ! number of grid points in each direction
-    real(num)   :: dx, dy, dz   ! grid spacing in each direction
-    real(num), dimension(:), allocatable :: x    ! grid points in x
-    real(num), dimension(:), allocatable :: y    ! grid points in y
-    real(num), dimension(:), allocatable :: z    ! grid points in z
+    character(len=100)        :: filename   ! location of mesh file
+    integer      :: nx, ny, nz   ! number of grid points in each direction
+    real(num)    :: dx, dy, dz   ! grid spacing in each direction
+    real(num), dimension(:), allocatable :: x    ! grid points in x direction
+    real(num), dimension(:), allocatable :: y    ! grid points in y direction
+    real(num), dimension(:), allocatable :: z    ! grid points in z direction
   end type bifrost_grid
 
   ! Data structure for holding data associated with a Bifrost snapshot
@@ -47,10 +48,11 @@ module bifrost_fields_mod
     type(bifrost_grid)      :: BF_grid          ! grid associated with the bifrost simulation
     type(bifrost_snap)      :: BF_snap1, BF_snap2   ! Bifrost snapshots before and after 
                                                     ! current particle time
-    integer, dimension(3)   :: index, offset    ! Arrays holding the bifrost grid index 
+    integer, dimension(3)   :: index            ! Array containing the bifrost grid index 
                                                 ! immediately below the location of the 
-                                                ! guiding center, and the offset
-                                                ! from it.
+                                                ! guiding center
+    real(num), dimension(3) :: offset           ! Array containg the offset of
+                                                ! the particle within the bifrost grid cell
     
     ! Check that we have the correct two snapshots read in
     if (BF_snap1 % T > T .or. BF_snap2 % T <= T) then
@@ -58,7 +60,7 @@ module bifrost_fields_mod
     endif
 
     ! Find position within Bifrost grid
-    !call find_in_grid(R, BF_grid, index, offset)
+    call find_in_grid(R, BF_grid, index, offset)
 
     ! Interpolate nearest gridpoints to get B, E
 
@@ -135,7 +137,7 @@ module bifrost_fields_mod
     call check_mpi_error(mpierr)
 
     ! Read the data
-    call mpi_file_read(fh, data_size, data_size, MPI_REAL, status, mpierr)
+    call mpi_file_read(fh, data_array, data_size, MPI_REAL, status, mpierr)
     call check_mpi_error(mpierr)
 
   end subroutine read_data_field
@@ -143,16 +145,62 @@ module bifrost_fields_mod
   ! Locates the particle guiding center within the Bifrost grid and returns the
   ! largest index below the guiding center location (in each direction) and the
   ! corresponding offset within the grid cell. This assumes a uniform grid
-  !subroutine find_in_grid(R, grid, index, offset)
-  !  real(num), dimension(3), intent(in) :: R      ! Location of guiding center
-  !  type(BF_grid), intent(in)           :: grid   ! The bifrost grid we're using
-  !  integer, dimension(3)               :: index  ! the indices of the grid cell
-  !                                                ! containing the test particle
-  !  real(num), dimension(3)             :: offset ! the particle's offset within
-  !                                                !the cell
+  subroutine find_in_grid(R, grid, index, offset)
+    real(num), dimension(3), intent(in)  :: R      ! Location of guiding center
+    type(bifrost_grid), intent(in)            :: grid   ! The bifrost grid we're using
+    integer, dimension(3), intent(out)   :: index  ! the indices of the grid cell
+                                                   ! containing the test particle
+    real(num), dimension(3), intent(out) :: offset ! the particle's offset within
+                                                   !the cell
+    index(1) = ceiling(R(1) / grid % dx)
+    index(2) = ceiling(R(2) / grid % dx)
+    index(3) = ceiling(R(3) / grid % dx)
+    offset(1) = R(1) - grid % x(index(1))
+    offset(2) = R(2) - grid % y(index(2))
+    offset(3) = R(3) - grid % z(index(3))
+  end subroutine find_in_grid
+
+  ! Reads the mesh file to define the Bifrost grid we're using and assigns
+  ! associated quantities
+  subroutine init_bifrost_grid(grid)
+    type(bifrost_grid)  :: grid     ! the bifrost grid we're initialising
+    integer             :: fh       ! the filehandle to the grid file
+    integer             :: grid_precision = 4 ! size in bytes of grid data
+    integer(kind=MPI_OFFSET_KIND)   :: file_size    ! size of grid file
+    integer(kind=MPI_OFFSET_KIND)   :: offset ! offset within file
+    integer             :: mpierr
+
+    call mpi_file_open(MPI_COMM_WORLD, grid % filename, MPI_MODE_RDONLY, &
+                       MPI_INFO_NULL, fh, mpierr)
+    call check_mpi_error(mpierr)
+
+    call mpi_file_get_size(fh, file_size, mpierr)
+    call check_mpi_error(mpierr)
+
+    ! If grid size is not specified in parameter file assume uniform grid
+    grid % nx = file_size / (3 * grid_precision)
+    grid % ny = file_size / (3 * grid_precision)
+    grid % nz = file_size / (3 * grid_precision)
+    ! ALEXEI: add ability to read grid size from parameter file
+
+    allocate(grid % x(grid % nx))
+    allocate(grid % y(grid % ny))
+    allocate(grid % z(grid % nz))
+
+    ! Set the offsets
+    call mpi_file_set_view(fh, offset, MPI_REAL, MPI_REAL, "native", &
+                           MPI_INFO_NULL, mpierr)
+    call check_mpi_error(mpierr)
+
+    ! Read the data
+    call mpi_file_read(fh, grid % x, grid % nx, MPI_REAL, status, mpierr)
+    call check_mpi_error(mpierr)
+    call mpi_file_read(fh, grid % x, grid % ny, MPI_REAL, status, mpierr)
+    call check_mpi_error(mpierr)
+    call mpi_file_read(fh, grid % x, grid % nz, MPI_REAL, status, mpierr)
+    call check_mpi_error(mpierr)
 
 
-
-  !end subroutine find_in_grid
+  end subroutine init_bifrost_grid
 
 end module bifrost_fields_mod
