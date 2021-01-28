@@ -5,6 +5,7 @@ MODULE M_driverR
     USE M_rkqsR, ONLY: RKQS
     USE M_fields, ONLY: FIELDS
     USE M_products, ONLY: DOT, CROSS
+    use bifrost_fields_mod, only: bifrost_grid
     !USE io
 
 IMPLICIT NONE
@@ -14,7 +15,7 @@ IMPLICIT NONE
 
   CONTAINS
 
-SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,NBAD)
+SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,NBAD,BF_grid)
  !##################################################################
  !Driver routine with adaptive stepsize control. It goes from T1 to
  !T2 with accuracy eps. Hmin is the minimum allowed stepsize. nok and 
@@ -48,6 +49,8 @@ SUBROUTINE RKDRIVE(RSTART,USTART,GAMMASTART,MU,T1,T2,EPS,H1, particle_index,NOK,
  integer        :: offset, write_size, buffer_index, write_step
  real(num), dimension(:,:), allocatable :: R_buf
  real(num), dimension(:,:), allocatable :: v_par_buf
+
+ type(bifrost_grid)     :: BF_grid  ! bifrost grid structure
 
   T=T1
   H=SIGN(H1,T2-T1)
@@ -86,13 +89,13 @@ UNDERFLOW=0
   !call init_particle_io(particle_index, n_io_fields, file_id, dset_ids, &
   !                      write_size)
  
- CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
+ CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2,BF_grid)
  ! ALEXEI: debugging
  if (isnan(R(1)) .or. isnan(R(2)) .or. isnan(R(3))) then
    print *, "R is nan ", R
    call abort
  endif
- CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,BF_grid)
  bb=B/sqrt(dot(B,B))
  
  UE=cross(E,B)/dot(B,B)
@@ -129,7 +132,7 @@ UNDERFLOW=0
  !gyrorad=sqrt((e2+e3)*AQoM*2.0_num)/gyrofreq
  gyrorad=MoAQ*Vscl/Bscl/gamma*sqrt(2.0_num*MU/sqrt(dot(B,B)))
  
-  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT, MU, T1, T2)
+  CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT, MU, T1, T2, BF_grid)
   
   IF (writervs)  write(file_index,*)Tscl*(T-T1),	&   !1
   Lscl*R,						&   !2,3,4
@@ -161,7 +164,7 @@ UNDERFLOW=0
   
   DO NSTP = 1, NSTPMAX
    
-   CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU, T1, T2)
+   CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU, T1, T2, BF_grid)
    vpar=U/GAMMA
    ek=efct*(gamma-1)*m*c*c
    !print*, NSTP
@@ -232,7 +235,7 @@ UNDERFLOW=0
      print *, "R is nan ", R
      call abort
    endif
-   CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, UNDERFLOW)	! T modified here.
+   CALL RKQS(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,EPS,RSCAL,HDID,HNEXT,T1,T2,UNDERFLOW,BF_grid)	! T modified here.
    
    !SPATIAL EXIT AT BOUNDS
    IF ((analyticalflag).OR.(l3dflag).OR.(l2dflag).OR.(NLFFflag).OR. &
@@ -683,8 +686,8 @@ UNDERFLOW=0
 !This is for storing every NSTORE step
    IF (MOD(NSTP,NSTORE)==0) THEN
 
-    CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2)
-    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+    CALL DERIVS (T, R, DRDT, U, DUDT,GAMMA,DGAMMADT,MU,T1,T2, BF_grid)
+    CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,BF_grid)
     
  
     IF (((bourdinflag).OR.(l3dflag).OR.(l2dflag).OR.(NLFFflag).OR.(MHDpflag)).AND.(SUM(E).EQ.0.0_num).AND.(SUM(B).EQ.0.0_num) &
@@ -829,7 +832,7 @@ UNDERFLOW=0
       WRITE(tempfile,"(A,'O',I8.8,'.ufl')") dlocR,particle_index    !
       open(55,file=tempfile,recl=1024,status='unknown')
     
-      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+      CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,BF_grid)
     
       vpar=U/GAMMA
       ek=efct*(gamma-1)*m*c*c

@@ -35,7 +35,7 @@ module bifrost_fields_mod
 
   ! Returns the field components and derivatives in each direction at the
   ! location of the guiding centre from a set of Bifrost snapshots
-  subroutine bifrost_fields(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+  subroutine bifrost_fields(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,BF_grid)
     REAL(num), DIMENSION(3),INTENT(OUT) :: B,E  ! Magnetic and electric fields 
                                                 ! at the location of the particle 
                                                 ! guiding centre
@@ -45,7 +45,7 @@ module bifrost_fields_mod
     REAL(num), DIMENSION(3)             :: Vf   ! No clue...    
     REAL(num)                           :: T    ! current time
 
-    type(bifrost_grid)      :: BF_grid          ! grid associated with the bifrost simulation
+    type(bifrost_grid), intent(in)      :: BF_grid  ! grid associated with the bifrost simulation
     type(bifrost_snap)      :: BF_snap1, BF_snap2   ! Bifrost snapshots before and after 
                                                     ! current particle time
     integer, dimension(3)   :: index            ! Array containing the bifrost grid index 
@@ -199,7 +199,6 @@ module bifrost_fields_mod
     call check_mpi_error(mpierr)
     call mpi_file_read(fh, grid % x, grid % nz, MPI_REAL, status, mpierr)
     call check_mpi_error(mpierr)
-
 
   end subroutine init_bifrost_grid
 

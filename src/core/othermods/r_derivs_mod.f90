@@ -2,6 +2,7 @@ MODULE M_derivsR
  USE global
  USE M_fields
  USE M_products 
+ use bifrost_fields_mod, only: bifrost_grid
   
  IMPLICIT NONE
   
@@ -11,7 +12,7 @@ MODULE M_derivsR
     
   CONTAINS
   !------------------------------------------------------------------------------!   
-SUBROUTINE JACOB(T,R,U,GAMMA,MU,T1,T2,PD)
+SUBROUTINE JACOB(T,R,U,GAMMA,MU,T1,T2,PD,BF_grid)
 !+ requires fields module for dot and cross product functions to work.
 !  calculates Jacobian for RHS's of particle equations
 !
@@ -33,8 +34,9 @@ SUBROUTINE JACOB(T,R,U,GAMMA,MU,T1,T2,PD)
  REAL(num)				:: MODB, oMODB, DMODBDS, EPAR,GRADBT, VPAR, DmodBDT
  REAL(num)				:: fac, facsq, ofac, ofacsq
  !LOGICAL, INTENT(OUT)			:: ERR 
+ type(bifrost_grid)     :: BF_grid  ! bifrost grid
 
- CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2, BF_grid)
  MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
  
  oMODB=1.0_num/MODB					! 1/|B| - computationally less expensive to multiply..
@@ -139,7 +141,7 @@ SUBROUTINE JACOB(T,R,U,GAMMA,MU,T1,T2,PD)
 
 END SUBROUTINE JACOB
 !------------------------------------------------------------------------------!   
-SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
+SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2, BF_grid)
 !+ requires fields module for dot and cross product functions to work.
 ! Calculates individual components of equations (44) and (45) of Guiliani et al (2005)
 !
@@ -163,6 +165,8 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
  REAL(num)				:: fac, facsq, ofac, ofacsq
  !LOGICAL, INTENT(OUT)			:: ERR 
 
+ type(bifrost_grid)     :: BF_grid  ! bifrost grid 
+
  ! ALEXEI: debugging
  integer  :: i
 
@@ -178,7 +182,7 @@ SUBROUTINE DERIVS (T, R, DRDT, U, DUDT,GAMMA, DGAMMADT,MU, T1, T2)
    call check_nan(R(i))
  enddo
 
- CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+ CALL FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2, BF_grid)
  MODB = SQRT(B(1)*B(1) + B(2)*B(2) + B(3)*B(3))		! |B|
  
  oMODB=1.0_num/MODB					! 1/|B| - computationally less expensive to multiply..

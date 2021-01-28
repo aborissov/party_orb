@@ -4,6 +4,7 @@ use global
 use m_products, only: dot, cross
 use m_driverr, only: rkdrive
 use m_fields, only: fields
+use bifrost_fields_mod, only: bifrost_grid
 implicit none
 
 type, public :: cell
@@ -15,6 +16,7 @@ type, public :: cell
   real(num), dimension(:),  allocatable  :: alpha            ! particle pitch angle
   real(num), dimension(:),  allocatable  :: particle_t       ! particle time
   real(num)                              :: particle_mass    ! particle mass
+  type(bifrost_grid)                     :: bifrost_grid     ! bifrost grid structure
 
   ! Grid quantities
   real, dimension(3) :: grid_upper_bound, grid_lower_bound
@@ -42,18 +44,18 @@ subroutine process_cell(self, n_part_per_cell, cell_index, nok, nbad)
     ! Calculate magnetic moment, initial 4-velocity, gamma
     ! ALEXEI: do we really need to call JTmucalc, or can we put this
     ! functionality into init_cells?
-    call JTmucalc(mu,ustart,self % gamma(i),alpha,rstart,t1,t2, reset_flag)
+    call JTmucalc(mu,ustart,self % gamma(i),alpha,rstart,t1,t2,reset_flag,self % bifrost_grid)
 
     ! ALEXEI: In original version there is a check that B is not too small. Need
     ! to replicate this!!! (use reset_flag)
 
     ! Integrate the particle orbit
-    call rkdrive(rstart,ustart,self % gamma(i),mu,t1,t2,eps,h1, particle_index,nok,nbad)
+    call rkdrive(rstart,ustart,self % gamma(i),mu,t1,t2,eps,h1,particle_index,nok,nbad,self % bifrost_grid)
   end do
   !$omp end parallel do
 end subroutine process_cell
 
-SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2, resetflag)
+SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2,resetflag,BF_grid)
 
   REAL(num), DIMENSION(3),INTENT(IN) :: RSTART
   REAL(num), INTENT(IN) :: T1,T2, Alpha, gammastart
@@ -61,11 +63,12 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2, resetflag)
   REAL(num), DIMENSION(3) :: B,El,a2,a3,a4,a5,a6,a7,a8,a9,a10,ue, RT
   REAL(num) :: modB,vtot, gamma, Etemp
   LOGICAL, INTENT(OUT)   :: resetflag
+  type(bifrost_grid)    :: BF_grid      ! bifrost grid structure
  
  resetflag=.FALSE.
  
  !calculate B, E, V at this point/time:
- CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2)
+ CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2,BF_grid)
 
  !calculate magnitude of B
  modB=sqrt(B(1)*B(1)+B(2)*B(2)+B(3)*B(3))

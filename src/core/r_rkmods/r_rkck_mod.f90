@@ -2,6 +2,7 @@ MODULE M_rkckR
 
  USE M_derivsR, ONLY: DERIVS
  USE GLOBAL 
+ use bifrost_fields_mod, only: bifrost_grid
  IMPLICIT NONE
 
   PRIVATE
@@ -9,7 +10,7 @@ MODULE M_rkckR
 
  CONTAINS
 
-  SUBROUTINE RKCK (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,H,MU,ROUT,UOUT,GAMMAOUT,RERR,T1,T2)
+  SUBROUTINE RKCK (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,H,MU,ROUT,UOUT,GAMMAOUT,RERR,T1,T2,BF_grid)
  !####################################################################  
  !This part basically takes one Runga-Kutta step, given 6 position 
  !variables, t, and stepsize h. It calculates a fifth and fourth order
@@ -44,6 +45,8 @@ MODULE M_rkckR
   !REAL(num), DIMENSION(3)		:: B,E,Vf
   !REAL(num), DIMENSION(3)		:: DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT
 
+  type(bifrost_grid)    :: BF_grid  ! bifrost grid structure
+
   
   1101 format (A, 'RTEMP1=[',ES9.2,',',ES9.2,',',ES9.2,'], GAMMATEMP1=',ES9.2,', UTEMP1=',ES9.2)
   1102 format (A, 'RTEMP2=[',ES9.2,',',ES9.2,',',ES9.2,'], GAMMATEMP2=',ES9.2,', UTEMP2=',ES9.2)
@@ -59,35 +62,35 @@ MODULE M_rkckR
     UTEMP = U + B21*H*DUDT  
     GAMMATEMP = GAMMA + B21*H*DGAMMADT
   !PRINT 1101, 'RKQS s1:', RTEMP, UTEMP, GAMMATEMP
-  CALL DERIVS (T+A2*H, RTEMP, AK2, UTEMP,UK2,GAMMATEMP,GK2,MU,T1,T2)     !second step
+  CALL DERIVS (T+A2*H, RTEMP, AK2, UTEMP,UK2,GAMMATEMP,GK2,MU,T1,T2,BF_grid)     !second step
   DO I = 1,3
     RTEMP(I) = R(I) + H *(B31*DRDT(I)+B32*AK2(I))
   ENDDO
     UTEMP = U+ H *(B31*DUDT +B32*UK2)
     GAMMATEMP = GAMMA+ H *(B31*DGAMMADT +B32*GK2)
   !PRINT 1102, 'RKQS s2:', RTEMP, UTEMP, GAMMATEMP
-  CALL DERIVS (T+A3*H, RTEMP, AK3,UTEMP,UK3,GAMMATEMP,GK3,MU,T1,T2)      !third step
+  CALL DERIVS (T+A3*H, RTEMP, AK3,UTEMP,UK3,GAMMATEMP,GK3,MU,T1,T2,BF_grid)      !third step
   DO I = 1,3
     RTEMP(I) = R(I) + H*(B41*DRDT(I)+B42*AK2(I)+B43*AK3(I))
   ENDDO
     UTEMP = U + H*(B41*DUDT+B42*UK2+B43*UK3)
     GAMMATEMP = GAMMA + H*(B41*DGAMMADT+B42*GK2+B43*GK3)
   !PRINT 1103, 'RKQS s3:', RTEMP, UTEMP, GAMMATEMP
-  CALL DERIVS (T+A4*H, RTEMP, AK4,UTEMP,UK4,GAMMATEMP,GK4,MU,T1,T2)   !fourth step
+  CALL DERIVS (T+A4*H, RTEMP, AK4,UTEMP,UK4,GAMMATEMP,GK4,MU,T1,T2,BF_grid)   !fourth step
   DO I = 1,3                  
    RTEMP(I) = R(I) + H*(B51*DRDT(I)+B52*AK2(I)+B53*AK3(I) + B54*AK4(I))
   ENDDO
    UTEMP = U + H*(B51*DUDT+B52*UK2+B53*UK3 + B54*UK4)
    GAMMATEMP = GAMMA + H*(B51*DGAMMADT+B52*GK2+B53*GK3 + B54*GK4)
   !PRINT 1104, 'RKQS s4:', RTEMP, UTEMP, GAMMATEMP
-  CALL DERIVS (T+A5*H, RTEMP, AK5, UTEMP, UK5,GAMMATEMP,GK5,MU,T1,T2)    !fifth step
+  CALL DERIVS (T+A5*H, RTEMP, AK5, UTEMP, UK5,GAMMATEMP,GK5,MU,T1,T2,BF_grid)    !fifth step
   DO I = 1,3                  
    RTEMP(I) = R(I) + H*(B61*DRDT(I)+B62*AK2(I)+B63*AK3(I) + B64*AK4(I)+B65*AK5(I))
   ENDDO
    UTEMP = U + H*(B61*DUDT+B62*UK2+B63*UK3 + B64*UK4+B65*UK5)
    GAMMATEMP = GAMMA + H*(B61*DGAMMADT+B62*GK2+B63*GK3 + B64*GK4+B65*GK5)
   !PRINT 1105, 'RKQS s5:', RTEMP, UTEMP, GAMMATEMP
-  CALL DERIVS (T+A6*H, RTEMP, AK6, UTEMP, UK6,GAMMATEMP,GK6,MU,T1,T2)     !sixth step
+  CALL DERIVS (T+A6*H, RTEMP, AK6, UTEMP, UK6,GAMMATEMP,GK6,MU,T1,T2,BF_grid)     !sixth step
   DO I = 1,3           !accumulate increments with weights       
    ROUT(I) = R(I) + H*(C1*DRDT(I)+C3*AK3(I)+C4*AK4(I)+C6*AK6(I))
   ENDDO

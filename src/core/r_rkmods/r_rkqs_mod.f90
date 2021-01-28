@@ -2,6 +2,7 @@ MODULE M_rkqsR
 
   USE global
   USE M_rkckR, ONLY: RKCK
+  use bifrost_fields_mod, only: bifrost_grid
   IMPLICIT NONE
 
   PRIVATE
@@ -9,7 +10,7 @@ MODULE M_rkqsR
 
   CONTAINS
 
- SUBROUTINE RKQS (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,HTRY,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, uflag)
+ SUBROUTINE RKQS (R,DRDT,U,DUDT,GAMMA,DGAMMADT, T,HTRY,MU,EPS,RSCAL,HDID,HNEXT,T1,T2, uflag, BF_grid)
 
 !##################################################################### 
  !this subroutine is the stepper and basically calls rkck to take one
@@ -40,13 +41,14 @@ MODULE M_rkqsR
 ! REAL(num) 				:: gyrofreq, gyroperiod, gyrorad, Epar
 ! CHARACTER(LEN=35)			:: tempfile
  INTEGER, INTENT(OUT)			:: uflag
+ type(bifrost_grid)     :: BF_grid      ! bifrost grid struct
  uflag=0
  !print 669, R, DRDT
  !669 format ('R3=[',ES9.2,',',ES9.2,',',ES9.2,'], DRDT=[',ES9.2,',',ES9.2,',',ES9.2,']') 
  H=HTRY                   !Initial value for stepsize
 
  DO WHILE (.NOT.(Rlost)) 
-   CALL RKCK(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,RTEMP,UTEMP,GAMMATEMP, RERR,T1,T2)
+   CALL RKCK(R,DRDT,U,DUDT,GAMMA,DGAMMADT,T,H,MU,RTEMP,UTEMP,GAMMATEMP,RERR,T1,T2,BF_grid)
 
    ERRMAX=maxval(abs(RERR(:)/RSCAL(:)))/EPS 
   !WRITE(*,1001)"time:",Tscl*(T-t1)

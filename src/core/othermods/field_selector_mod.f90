@@ -9,7 +9,7 @@ MODULE M_fields
   USE NLFF_fields, ONLY: NLFFFIELDS
   USE MHDp_fields, ONLY: MHDpFIELDS
   USE FR_fields, ONLY: FRFIELDS
-  USE bifrost_fields_mod, ONLY: bifrost_fields
+  USE bifrost_fields_mod, ONLY: bifrost_fields, bifrost_grid
   
   IMPLICIT NONE
 
@@ -18,7 +18,7 @@ MODULE M_fields
 
   CONTAINS 
 !---------------------------------------------------------------------------!
-SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
+SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,BF_grid)
 !selects which fields module we actually use.
 
  INTEGER, SAVE :: route = -1
@@ -26,7 +26,10 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
  REAL(num), DIMENSION(3),INTENT(OUT)	:: DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT
  REAL(num), DIMENSION(3),INTENT(IN)	:: R
  REAL(num), DIMENSION(3)  		:: Vf
- REAL(num), INTENT(IN) 			:: T, T1, T2
+ REAL(num), INTENT(IN) 			:: T, T1, T2 ! ALEXEI: check if we actually need T1 and T2 here...
+
+ ! ALEXEI: somehow make this work only when using bifrost fields
+ type(bifrost_grid), intent(in) :: BF_grid
 
 100 SELECT CASE(route)
   CASE(-1) ! setup on first use of subroutine
@@ -75,7 +78,7 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2)
   CASE(9)
     CALL MHDpFIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
   CASE(10)
-    CALL bifrost_fields(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf)
+    CALL bifrost_fields(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,BF_grid)
 END SELECT
 
 

@@ -13,6 +13,7 @@ USE M_fields, ONLY: FIELDS
 USE gammadist_mod, ONLY: random_gamma
 USE omp_lib
 USE cell_struct
+USE bifrost_fields_mod, ONLY: init_bifrost_grid
 !USE io
 
 IMPLICIT NONE
@@ -21,6 +22,8 @@ IMPLICIT NONE
   REAL(num), DIMENSION(3) :: spatial_grid_step, box_size
   integer :: n_cells = 1, n_part_per_cell
   type(cell), dimension(:), allocatable :: cells
+
+  type(bifrost_grid)    :: BF_grid
 
   !-----------------------------------------------------------------------------
   
@@ -32,6 +35,22 @@ IMPLICIT NONE
   CALL read_param
      
   ! Specify box limits
+  ! ALEXEI: somehow do this better
+  IF ((str_cmp(FMOD, "bifrost"))) THEN
+   l2dflag=.TRUE.
+   c_ndims=2
+   spatial_extent_lower_bound = (/-1., -1., -1./)
+   spatial_extent_upper_bound = (/1., 1., 1./)
+   CALL MPI_INIT(errcode)
+   CALL mpi_initialise_2d
+   call init_bifrost_grid(BF_grid)
+   PRINT*, '..evaluating particle array against bifrost grid..'
+  ELSE
+    ! ALEXEI: temporary hardcoded limits added to make things run. Make this
+    ! whole limit selector work better somehow.
+    spatial_extent_lower_bound = (/-1., -1., -1./)
+    spatial_extent_upper_bound = (/1., 1., 1./)
+  ENDIF
   IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN
    l2dflag=.TRUE.
    c_ndims=2
@@ -84,7 +103,7 @@ IMPLICIT NONE
   ! Init cells
   ! ALEXEI: for testing just using one cell for now, so n_part_per_cell = nparticles
   n_part_per_cell = nparticles
-  cells = init_cells(n_cells, n_part_per_cell, RSTEPS(1)*RSTEPS(2)*RSTEPS(3), AlphaSteps-1, EkinSteps)
+  cells = init_cells(n_cells, n_part_per_cell, RSTEPS(1)*RSTEPS(2)*RSTEPS(3), AlphaSteps-1, EkinSteps, BF_grid)
 
   ! ALEXEI: debugging
   print *, "cells initialised"
@@ -108,7 +127,7 @@ IMPLICIT NONE
 !------------------------------------------------------------------------------!
  contains
 !------------------------------------------------------------------------------!
-function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, n_alpha_per_cell) result(cells)
+function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, n_alpha_per_cell, BF_grid) result(cells)
   integer, intent(in)   :: n_cells              ! number of cells
   integer, intent(in)   :: n_pos_per_cell       ! number of particle positions per cell
   integer, intent(in)   :: n_gamma_per_cell     ! number of gammas per cell
@@ -116,6 +135,7 @@ function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, 
   integer, intent(in)   :: n_part_per_cell      ! total number of particles per cell
   type(cell), dimension(:), allocatable :: cells    ! cell structs array
   integer               :: i,j,k,l,part_index   ! counters
+  type(bifrost_grid)    :: BF_grid              ! bifrost grid structure
 
   allocate(cells(n_cells))
 
@@ -159,6 +179,9 @@ function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, 
     ! Set the grid bounds
     cells(i) % grid_upper_bound = spatial_extent_upper_bound
     cells(i) % grid_lower_bound = spatial_extent_lower_bound
+    
+    ! Set the bifrost grid structure
+    cells(i) % bifrost_grid = BF_grid
   end do
 end function init_cells
 
