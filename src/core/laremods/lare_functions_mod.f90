@@ -165,8 +165,7 @@ FUNCTION linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
       IF (abs(dz).gt.1.0_num) PRINT*, 'dz:', abs(dz)
       Rlost=.TRUE.
       linterp3d=0.0_num
-      RETURN
-      !STOP
+      call abort
     ENDIF
 
     a=f000
@@ -177,6 +176,13 @@ FUNCTION linterp3d(dx,dy,dz,f000,f100,f010,f110,f001,f101,f011,f111)
     f=f101-f100-f001+f000
     g=f011-f010-f001+f000
     h=f111-f110-f101-f011+f100+f010+f001-f000
+    
+    ! ALEXEI: debugging
+    if (a+b*dx+c*dy+d*dx*dy+e*dz+f*dx*dz+g*dy*dz+h*dx*dy*dz == 0) then
+      print *, "interpolation zero offset ", dx, dy, dz
+      print *, "coefficients ", f000,f100,f010,f110,f001,f101,f011,f111
+      call abort
+    end if
   
   linterp3d=a+b*dx+c*dy+d*dx*dy+e*dz+f*dx*dz+g*dy*dz+h*dx*dy*dz
   

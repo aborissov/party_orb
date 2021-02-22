@@ -10,7 +10,7 @@ MODULE global
  SAVE 
   
 !########################################################################## 
- CHARACTER(Len = 4), PARAMETER	:: FMOD='l2d' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
+ CHARACTER(Len = 4), PARAMETER	:: FMOD='BF' ! SWITCH BETWEEN FIELDS: "l3d","l2d", "SEP","CMT","test","bor", "NLFF", "MHDp"
  INTEGER, PARAMETER		:: mysnap=0000	!  no. of ****.cfd or ****.sdf file (if "l3d")
  INTEGER, PARAMETER		:: nframes=1	! no. of frames
  CHARACTER(Len = 40)		:: sloc='lare2d_data/'

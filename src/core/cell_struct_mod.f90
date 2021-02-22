@@ -16,7 +16,7 @@ type, public :: cell
   real(num), dimension(:),  allocatable  :: alpha            ! particle pitch angle
   real(num), dimension(:),  allocatable  :: particle_t       ! particle time
   real(num)                              :: particle_mass    ! particle mass
-  type(bifrost_grid)                     :: bifrost_grid     ! bifrost grid structure
+  type(bifrost_grid), pointer            :: bifrost_grid     ! bifrost grid structure
 
   ! Grid quantities
   real, dimension(3) :: grid_upper_bound, grid_lower_bound
@@ -66,7 +66,7 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2,resetflag,BF_grid)
   type(bifrost_grid)    :: BF_grid      ! bifrost grid structure
  
  resetflag=.FALSE.
- 
+    
  !calculate B, E, V at this point/time:
  CALL FIELDS(RSTART,T1,El,B,a2,a3,a4,a5,a6,a7,a8,a9,a10,T1,T2,BF_grid)
 
@@ -96,6 +96,7 @@ SUBROUTINE JTMUcalc(mu,USTART,GAMMASTART,alpha,RSTART,T1,T2,resetflag,BF_grid)
  IF (vtot/=vtot) THEN
   PRINT*, VTOT
   PRINT*, 'Vtot NaN ENCOUNTERED'
+  print *, El, B
   STOP
  ENDIF
  

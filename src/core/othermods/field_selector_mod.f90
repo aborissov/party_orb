@@ -51,11 +51,11 @@ SUBROUTINE FIELDS(R,T,E,B,DBDX,DBDY,DBDZ,DBDT,DEDX,DEDY,DEDZ,DEDT,Vf,T1,T2,BF_gr
       route=8    
     ELSE IF ((str_cmp(FMOD, "MHDp")).OR.(str_cmp(FMOD, "mhdp"))) THEN
       route=9
-    ELSE IF ((str_cmp(FMOD, "bifrost"))) THEN
+    ELSE IF ((str_cmp(FMOD, "BF"))) THEN
       route=10
     ELSE
       PRINT*, "FIELD SELECTOR MODULE: incorrect field choice, choose from:"
-      PRINT*, "['l3d','l2d','sep','CMT','test','bour','FRE', 'NLFF', 'MHDp']"
+      PRINT*, "['l3d','l2d','sep','CMT','test','bour','FRE', 'NLFF', 'MHDp', 'BF']"
       STOP
     END IF
     GO TO 100 ! now actually head back and select case we want!

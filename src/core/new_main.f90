@@ -13,7 +13,7 @@ USE M_fields, ONLY: FIELDS
 USE gammadist_mod, ONLY: random_gamma
 USE omp_lib
 USE cell_struct
-USE bifrost_fields_mod, ONLY: init_bifrost_grid
+USE bifrost_fields_mod, ONLY: init_bifrost_grid, deallocate_bifrost_grid
 !USE io
 
 IMPLICIT NONE
@@ -36,13 +36,12 @@ IMPLICIT NONE
      
   ! Specify box limits
   ! ALEXEI: somehow do this better
-  IF ((str_cmp(FMOD, "bifrost"))) THEN
+  IF ((str_cmp(FMOD, "BF"))) THEN
    l2dflag=.TRUE.
    c_ndims=2
    spatial_extent_lower_bound = (/-1., -1., -1./)
    spatial_extent_upper_bound = (/1., 1., 1./)
    CALL MPI_INIT(errcode)
-   CALL mpi_initialise_2d
    call init_bifrost_grid(BF_grid)
    PRINT*, '..evaluating particle array against bifrost grid..'
   ELSE
@@ -117,6 +116,10 @@ IMPLICIT NONE
   ! ALEXEI: debugging
   print *, "cells processed"
 
+  ! ALEXEI: make this more flexible
+  if ((str_cmp(FMOD, "BF"))) &
+    call deallocate_bifrost_grid(BF_grid)
+
  IF ((str_cmp(FMOD, "L2D")).OR.(str_cmp(FMOD, "l2d"))) THEN   !forget arrays at end
   CALL mpi_close                     ! mpi_routines.f90
   CALL MPI_FINALIZE(errcode)
@@ -135,7 +138,11 @@ function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, 
   integer, intent(in)   :: n_part_per_cell      ! total number of particles per cell
   type(cell), dimension(:), allocatable :: cells    ! cell structs array
   integer               :: i,j,k,l,part_index   ! counters
-  type(bifrost_grid)    :: BF_grid              ! bifrost grid structure
+  type(bifrost_grid), target    :: BF_grid              ! bifrost grid structure
+
+  ! ALEXEI: timing
+  real  :: t0, t1
+  call cpu_time(t0)
 
   allocate(cells(n_cells))
 
@@ -181,8 +188,12 @@ function init_cells(n_cells, n_part_per_cell, n_pos_per_cell, n_gamma_per_cell, 
     cells(i) % grid_lower_bound = spatial_extent_lower_bound
     
     ! Set the bifrost grid structure
-    cells(i) % bifrost_grid = BF_grid
+    cells(i) % bifrost_grid => BF_grid
   end do
+
+  ! ALEXEI: timing
+  call cpu_time(t1)
+  print *, "initialising cells took ", t1 - t0
 end function init_cells
 
 END PROGRAM reltest
